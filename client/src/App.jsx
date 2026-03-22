@@ -9,6 +9,8 @@ import './i18n/index.js';
 import { useAuthStore, useUIStore } from './store/index.js';
 import api from './api/client.js';
 import Navbar from './components/Navbar.jsx';
+import Footer from './components/Footer.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import PageLoader from './components/PageLoader.jsx';
 import LoginModal from './components/LoginModal.jsx';
 
@@ -95,41 +97,44 @@ export default function App() {
   }, [theme]);
 
   return (
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <div className="min-h-screen bg-surface">
-            <Navbar />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/"                  element={<Home />} />
-                <Route path="/posts/:slug"       element={<PostDetail />} />
-                <Route path="/category/:slug"    element={<Category />} />
-                <Route path="/author/:username"  element={<Author />} />
-                <Route path="/search"            element={<Search />} />
+    <ErrorBoundary>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <div className="min-h-screen flex flex-col bg-surface">
+              <Navbar />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/"                  element={<Home />} />
+                  <Route path="/posts/:slug"       element={<PostDetail />} />
+                  <Route path="/category/:slug"    element={<Category />} />
+                  <Route path="/author/:username"  element={<Author />} />
+                  <Route path="/search"            element={<Search />} />
 
-                <Route path="/login"    element={<AuthRoute><Login /></AuthRoute>} />
-                <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
+                  <Route path="/login"    element={<AuthRoute><Login /></AuthRoute>} />
+                  <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
 
-                <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
-                <Route path="/editor"    element={<AdminRoute><Editor /></AdminRoute>} />
-                <Route path="/editor/:id" element={<AdminRoute><Editor /></AdminRoute>} />
-                <Route path="/bookmarks" element={<PrivateRoute><Bookmarks /></PrivateRoute>} />
+                  <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+                  <Route path="/editor"    element={<AdminRoute><Editor /></AdminRoute>} />
+                  <Route path="/editor/:id" element={<AdminRoute><Editor /></AdminRoute>} />
+                  <Route path="/bookmarks" element={<PrivateRoute><Bookmarks /></PrivateRoute>} />
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-            <LoginModal />
-          </div>
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' },
-            }}
-          />
-        </BrowserRouter>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
-    </HelmetProvider>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              <LoginModal />
+              <Footer />
+            </div>
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' },
+              }}
+            />
+          </BrowserRouter>
+          {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+        </QueryClientProvider>
+      </HelmetProvider>
+    </ErrorBoundary>
   );
 }
