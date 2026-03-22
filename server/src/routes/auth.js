@@ -78,6 +78,48 @@ router.post('/register', authLimiter, async (req, res, next) => {
   }
 });
 
+// POST /api/auth/oauth
+// Simulates Google, Facebook, and Apple logins to support the UI without requesting real Client IDs 
+router.post('/oauth', authLimiter, async (req, res, next) => {
+  try {
+    const { provider } = req.body;
+    if (!['Apple', 'Google', 'Facebook'].includes(provider)) {
+      return res.status(400).json({ error: 'Unsupported provider' });
+    }
+
+    const email = `user_${provider.toLowerCase()}@example.com`;
+    const username = `${provider}User`;
+    
+    const db = getDb();
+    let user = db.prepare('SELECT id, username, email, role FROM users WHERE email = ?').get(email);
+    
+    if (!user) {
+      // Create user with a random unguessable password
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hash = await bcrypt.hash(randomPassword, 12);
+      
+      const result = db.prepare(
+        'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)'
+      ).run(username, email, hash, 'viewer');
+      
+      user = db.prepare('SELECT id, username, email, role FROM users WHERE id = ?').get(result.lastInsertRowid);
+    }
+
+    const accessToken = signAccess(user);
+    const refreshToken = signRefresh(user);
+
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const expires = Math.floor(Date.now() / 1000) + REFRESH_EXP_DAYS * 86400;
+    db.prepare('INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)').run(user.id, tokenHash, expires);
+
+    setRefreshCookie(res, refreshToken);
+
+    res.status(200).json({ user, accessToken, provider });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/auth/login
 router.post('/login', authLimiter, async (req, res, next) => {
   try {

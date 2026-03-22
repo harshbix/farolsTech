@@ -60,7 +60,11 @@ export default function PostCard({ post }) {
         <div className="flex items-center gap-3 text-sm text-[rgb(var(--text-secondary))] pt-1">
           <button
             id={`like-btn-${post.id}`}
-            onClick={() => isAuthenticated ? likeMutation.mutate() : openLoginModal()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              isAuthenticated ? likeMutation.mutate() : openLoginModal();
+            }}
             className={`flex items-center gap-1 hover:text-red-400 transition-colors ${post.liked ? 'text-red-500' : ''}`}
             aria-label={t('like')}
           >

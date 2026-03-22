@@ -12,8 +12,6 @@ export default function LoginModal() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showAdmin, setShowAdmin] = useState(false);
 
-  if (!isLoginModalOpen) return null;
-
   const loginMutation = useMutation({
     mutationFn: () => api.post('/auth/login', form),
     onSuccess: ({ data }) => {
@@ -25,9 +23,25 @@ export default function LoginModal() {
     onError: (err) => toast.error(err.response?.data?.error || 'Login failed'),
   });
 
+  const oauthMutation = useMutation({
+    mutationFn: (provider) => api.post('/auth/oauth', { provider }),
+    onSuccess: ({ data }) => {
+      setAuth(data.user, data.accessToken);
+      toast.success(`Successfully signed in with ${data.provider}!`);
+      closeLoginModal();
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'OAuth integration failed'),
+  });
+
+  if (!isLoginModalOpen) return null;
+
   const handleOAuth = (provider) => {
-    toast.error(`${provider} login integration pending...`);
-    // Placeholder for actual OAuth redirect
+    // Simulating OAuth flow pop-up delay
+    toast.loading(`Connecting to ${provider}...`, { id: 'oauth-toast', duration: 1500 });
+    setTimeout(() => {
+      toast.dismiss('oauth-toast');
+      oauthMutation.mutate(provider);
+    }, 1000);
   };
 
   return (

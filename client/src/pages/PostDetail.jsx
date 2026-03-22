@@ -228,7 +228,10 @@ export default function PostDetail() {
         <div className="max-w-3xl mx-auto flex items-center gap-4 mt-12 pt-6 border-t border-surface-border">
           <button
             id="like-post-btn"
-            onClick={() => isAuthenticated ? likeMutation.mutate() : openLoginModal()}
+            onClick={(e) => {
+              e.preventDefault();
+              isAuthenticated ? likeMutation.mutate() : openLoginModal();
+            }}
             className={`btn ${data.liked ? 'bg-red-900/30 text-red-500' : 'btn-ghost'}`}
           >
             ♥ {data.likes_count} {t('like')}
