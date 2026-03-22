@@ -4,6 +4,8 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { mkdirSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 import logger from './utils/logger.js';
 import { runMigrations } from './db/client.js';
@@ -23,9 +25,14 @@ import categoriesRoutes  from './routes/categories.js';
 import usersRoutes       from './routes/users.js';
 import notificationsRoutes from './routes/notifications.js';
 import bookmarksRoutes   from './routes/bookmarks.js';
+import uploadsRoutes     from './routes/uploads.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Ensure data directory exists
-mkdirSync('./data', { recursive: true });
+mkdirSync(join(__dirname, '..', 'data'), { recursive: true });
+mkdirSync(join(__dirname, '..', 'uploads', 'posts'), { recursive: true });
+mkdirSync(join(__dirname, '..', 'uploads', 'avatars'), { recursive: true });
 
 // Run DB migrations on startup
 runMigrations();
@@ -41,6 +48,7 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(globalLimiter);
+app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 
 // Request logging
 app.use((req, _res, next) => {
@@ -48,22 +56,27 @@ app.use((req, _res, next) => {
   next();
 });
 
-// ── API Routes ─────────────────────────────────────────────────
-app.use('/api/auth',          authRoutes);
-app.use('/api/posts',         postsRoutes);
-app.use('/api/posts/:postId/comments', commentsRoutes);
-app.use('/api/posts/:postId/like',     likesRoutes);
-app.use('/api/posts/:postId/share',    sharesRoutes);
-app.use('/api/search',        searchRoutes);
-app.use('/api/categories',    categoriesRoutes);
-app.use('/api/users',         usersRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/bookmarks',     bookmarksRoutes);
+function mountApiRoutes(prefix) {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/posts`, postsRoutes);
+  app.use(`${prefix}/posts/:postId/comments`, commentsRoutes);
+  app.use(`${prefix}/posts/:postId/like`, likesRoutes);
+  app.use(`${prefix}/posts/:postId/share`, sharesRoutes);
+  app.use(`${prefix}/search`, searchRoutes);
+  app.use(`${prefix}/categories`, categoriesRoutes);
+  app.use(`${prefix}/users`, usersRoutes);
+  app.use(`${prefix}/notifications`, notificationsRoutes);
+  app.use(`${prefix}/bookmarks`, bookmarksRoutes);
+  app.use(`${prefix}/uploads`, uploadsRoutes);
 
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', env: process.env.NODE_ENV, time: new Date().toISOString() });
-});
+  app.get(`${prefix}/health`, (_req, res) => {
+    res.json({ status: 'ok', env: process.env.NODE_ENV, time: new Date().toISOString() });
+  });
+}
+
+// v1 routes + backward compatibility routes
+mountApiRoutes('/api/v1');
+mountApiRoutes('/api');
 
 // ── Error Handlers ─────────────────────────────────────────────
 app.use(notFound);

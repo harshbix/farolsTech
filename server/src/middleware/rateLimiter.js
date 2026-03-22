@@ -17,3 +17,11 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many auth attempts, please try again later.' },
 });
+
+export const likeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many like actions, please try again shortly.' },
+});

@@ -20,24 +20,24 @@ export default function Home() {
   return (
     <>
       <SEOHead />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         {/* Hero */}
-        <section className="mb-12 text-center">
-          <h1 className="text-5xl sm:text-6xl font-display font-bold text-gradient mb-4">
-            Habari za Tanzania
+        <section className="mb-20 text-center flex flex-col items-center justify-center min-h-[30vh]">
+          <h1 className="text-5xl md:text-7xl font-display font-semibold text-[rgb(var(--text-primary))] tracking-tight mb-6 mt-8">
+            Habari za Tanzania.
           </h1>
-          <p className="text-lg text-gray-400 max-w-xl mx-auto">
+          <p className="text-xl md:text-2xl text-[rgb(var(--text-secondary))] max-w-2xl mx-auto font-medium">
             Stories that matter, delivered fast. Your East African digital newsroom.
           </p>
         </section>
 
         {/* Trending */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-display font-bold mb-5 flex items-center gap-2">
-            🔥 {t('trending')}
+        <section className="mb-16">
+          <h2 className="text-xl font-display font-semibold mb-6 uppercase tracking-widest text-[rgb(var(--text-secondary))]">
+            {t('trending')}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {trending.isLoading
               ? Array(3).fill(0).map((_, i) => <SkeletonCard key={i} />)
               : trending.data?.map(post => <PostCard key={post.id} post={post} />)
@@ -47,13 +47,13 @@ export default function Home() {
 
         {/* Categories */}
         {cats.data?.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-xl font-display font-semibold mb-4">{t('categories')}</h2>
-            <div className="flex flex-wrap gap-2">
+          <section className="mb-16">
+            <h2 className="text-xl font-display font-semibold mb-6 uppercase tracking-widest text-[rgb(var(--text-secondary))]">{t('categories')}</h2>
+            <div className="flex flex-wrap gap-3">
               {cats.data.map(cat => (
                 <Link key={cat.id} to={`/category/${cat.slug}`}
-                  className="badge-brand hover:bg-brand-800 transition-colors px-3 py-1 text-sm">
-                  {cat.name} <span className="opacity-60 ml-1">({cat.post_count})</span>
+                  className="bg-surface-raised border border-surface-border hover:border-brand-500 transition-colors rounded-full px-4 py-1.5 text-sm font-medium">
+                  {cat.name} <span className="opacity-50 ml-1">({cat.post_count})</span>
                 </Link>
               ))}
             </div>
@@ -62,16 +62,16 @@ export default function Home() {
 
         {/* Latest */}
         <section>
-          <h2 className="text-2xl font-display font-bold mb-5">📰 {t('latest')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-xl font-display font-semibold mb-6 uppercase tracking-widest text-[rgb(var(--text-secondary))]">The Latest</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {latest.isLoading
-              ? Array(6).fill(0).map((_, i) => <SkeletonCard key={i} />)
+              ? Array(8).fill(0).map((_, i) => <SkeletonCard key={i} />)
               : latest.data?.posts?.map(post => <PostCard key={post.id} post={post} />)
             }
           </div>
           {latest.data?.total > 12 && (
-            <div className="text-center mt-8">
-              <Link to="/search" className="btn-primary">Load more</Link>
+            <div className="text-center mt-12">
+              <Link to="/search" className="btn-ghost border border-surface-border px-8 py-3 rounded-full hover:bg-surface-raised transition-colors">Load more</Link>
             </div>
           )}
         </section>

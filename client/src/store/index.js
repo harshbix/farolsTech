@@ -28,8 +28,13 @@ export const useUIStore = create(
     (set) => ({
       language: 'en',    // 'en' | 'sw'
       liteMode: false,
+      theme: 'dark',
+      isLoginModalOpen: false,
       setLanguage: (lang) => set({ language: lang }),
       toggleLiteMode: () => set((s) => ({ liteMode: !s.liteMode })),
+      toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+      openLoginModal: () => set({ isLoginModalOpen: true }),
+      closeLoginModal: () => set({ isLoginModalOpen: false }),
     }),
     { name: 'farols-ui' }
   )

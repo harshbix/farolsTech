@@ -11,7 +11,13 @@ export function requireAuth(req, res, next) {
   }
   const token = authHeader.slice(7);
   try {
-    req.user = jwt.verify(token, ACCESS_SECRET);
+    const decoded = jwt.verify(token, ACCESS_SECRET);
+    const db = getDb();
+    const dbUser = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(decoded.id);
+    if (!dbUser) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    req.user = { ...decoded, username: dbUser.username, role: dbUser.role };
     next();
   } catch (err) {
     logger.warn(`Auth failed: ${err.message}`);
@@ -34,7 +40,12 @@ export function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      req.user = jwt.verify(authHeader.slice(7), ACCESS_SECRET);
+      const decoded = jwt.verify(authHeader.slice(7), ACCESS_SECRET);
+      const db = getDb();
+      const dbUser = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(decoded.id);
+      if (dbUser) {
+        req.user = { ...decoded, username: dbUser.username, role: dbUser.role };
+      }
     } catch (_) {}
   }
   next();

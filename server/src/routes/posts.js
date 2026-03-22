@@ -1,22 +1,26 @@
 import { Router } from 'express';
 import { getDb } from '../db/client.js';
 import { requireAuth, requireRole, optionalAuth } from '../middleware/auth.js';
-import { slugify, paginate, calcTrendingScore } from '../utils/helpers.js';
+import { slugify, paginate } from '../utils/helpers.js';
+import { sanitizePlainText, sanitizeRichHtml } from '../utils/sanitize.js';
 import { z } from 'zod';
 
 const router = Router();
+
+const nullableUrlField = z.union([z.string().url(), z.literal(''), z.null(), z.undefined()])
+  .transform((value) => (value ? value : null));
 
 const postSchema = z.object({
   title: z.string().min(3).max(200),
   content_json: z.string(),
   category_id: z.number().int().optional().nullable(),
   excerpt: z.string().max(500).optional(),
-  cover_image: z.string().url().optional().nullable(),
+  cover_image: nullableUrlField,
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
   featured: z.boolean().default(false),
   meta_title: z.string().max(70).optional(),
   meta_desc: z.string().max(160).optional(),
-  og_image: z.string().url().optional().nullable(),
+  og_image: nullableUrlField,
   tags: z.array(z.string()).optional(),
   // Bilingual
   title_sw: z.string().optional(),
@@ -32,8 +36,7 @@ router.get('/', optionalAuth, (req, res) => {
   let where = [];
   let params = [];
 
-  // Only admins/editors see drafts
-  const canSeeDrafts = req.user && ['admin', 'editor'].includes(req.user.role);
+  const canSeeDrafts = req.user && req.user.role === 'admin';
   if (!canSeeDrafts) {
     where.push("p.status = 'published'");
   } else if (status) {
@@ -108,7 +111,7 @@ router.get('/:slug', optionalAuth, (req, res) => {
   if (!post) return res.status(404).json({ error: 'Post not found' });
 
   const canSee = post.status === 'published' ||
-    (req.user && (req.user.id === post.author_id || ['admin', 'editor'].includes(req.user.role)));
+    (req.user && req.user.role === 'admin');
   if (!canSee) return res.status(404).json({ error: 'Post not found' });
 
   // Increment view count
@@ -133,12 +136,23 @@ router.get('/:slug', optionalAuth, (req, res) => {
 });
 
 // POST /api/posts
-router.post('/', requireAuth, requireRole('author', 'editor', 'admin'), async (req, res, next) => {
+router.post('/', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     const data = postSchema.parse(req.body);
     const db = getDb();
 
-    let slug = slugify(data.title);
+    const cleanedData = {
+      ...data,
+      title: sanitizePlainText(data.title, 200),
+      excerpt: data.excerpt ? sanitizePlainText(data.excerpt, 500) : null,
+      content_json: sanitizeRichHtml(data.content_json),
+      title_sw: data.title_sw ? sanitizePlainText(data.title_sw, 200) : null,
+      content_json_sw: data.content_json_sw ? sanitizeRichHtml(data.content_json_sw) : null,
+      meta_title: data.meta_title ? sanitizePlainText(data.meta_title, 70) : null,
+      meta_desc: data.meta_desc ? sanitizePlainText(data.meta_desc, 160) : null,
+    };
+
+    let slug = slugify(cleanedData.title);
     // Ensure unique slug
     let existing = db.prepare('SELECT id FROM posts WHERE slug = ?').get(slug);
     if (existing) slug = `${slug}-${Date.now()}`;
@@ -151,17 +165,17 @@ router.post('/', requireAuth, requireRole('author', 'editor', 'admin'), async (r
         title_sw, content_json_sw, published_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      req.user.id, data.category_id ?? null, data.title, slug,
-      data.excerpt ?? null, data.content_json,
-      data.cover_image ?? null, data.status, data.featured ? 1 : 0,
-      data.meta_title ?? null, data.meta_desc ?? null, data.og_image ?? null,
-      data.title_sw ?? null, data.content_json_sw ?? null,
+      req.user.id, cleanedData.category_id ?? null, cleanedData.title, slug,
+      cleanedData.excerpt ?? null, cleanedData.content_json,
+      cleanedData.cover_image ?? null, cleanedData.status, cleanedData.featured ? 1 : 0,
+      cleanedData.meta_title ?? null, cleanedData.meta_desc ?? null, cleanedData.og_image ?? null,
+      cleanedData.title_sw ?? null, cleanedData.content_json_sw ?? null,
       publishedAt
     );
 
     // Handle tags
-    if (data.tags?.length) {
-      for (const tagName of data.tags) {
+    if (cleanedData.tags?.length) {
+      for (const tagName of cleanedData.tags) {
         const tagSlug = slugify(tagName);
         let tag = db.prepare('SELECT id FROM tags WHERE slug = ?').get(tagSlug);
         if (!tag) {
@@ -181,14 +195,11 @@ router.post('/', requireAuth, requireRole('author', 'editor', 'admin'), async (r
 });
 
 // PUT /api/posts/:id
-router.put('/:id', requireAuth, async (req, res, next) => {
+router.put('/:id', requireAuth, requireRole('admin'), async (req, res, next) => {
   try {
     const db = getDb();
     const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
-
-    const canEdit = req.user.id === post.author_id || ['editor', 'admin'].includes(req.user.role);
-    if (!canEdit) return res.status(403).json({ error: 'Forbidden' });
 
     // Save revision before update (keep last 20)
     db.prepare('INSERT INTO revisions (post_id, content_json) VALUES (?, ?)').run(post.id, post.content_json);
@@ -200,7 +211,18 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     }
 
     const data = postSchema.partial().parse(req.body);
-    const wasPublished = post.status !== 'published' && data.status === 'published';
+    const cleanedData = {
+      ...data,
+      title: data.title !== undefined ? sanitizePlainText(data.title, 200) : undefined,
+      excerpt: data.excerpt !== undefined ? sanitizePlainText(data.excerpt ?? '', 500) : undefined,
+      content_json: data.content_json !== undefined ? sanitizeRichHtml(data.content_json) : undefined,
+      title_sw: data.title_sw !== undefined ? sanitizePlainText(data.title_sw ?? '', 200) : undefined,
+      content_json_sw: data.content_json_sw !== undefined ? sanitizeRichHtml(data.content_json_sw ?? '') : undefined,
+      meta_title: data.meta_title !== undefined ? sanitizePlainText(data.meta_title ?? '', 70) : undefined,
+      meta_desc: data.meta_desc !== undefined ? sanitizePlainText(data.meta_desc ?? '', 160) : undefined,
+    };
+
+    const wasPublished = post.status !== 'published' && cleanedData.status === 'published';
     const publishedAt = wasPublished ? Math.floor(Date.now() / 1000) : post.published_at;
 
     db.prepare(`
@@ -215,11 +237,11 @@ router.put('/:id', requireAuth, async (req, res, next) => {
         updated_at = unixepoch()
       WHERE id = ?
     `).run(
-      data.title ?? null, data.excerpt ?? null, data.content_json ?? null,
-      data.category_id ?? null, data.cover_image ?? null, data.status ?? null,
-      data.featured !== undefined ? (data.featured ? 1 : 0) : null,
-      data.meta_title ?? null, data.meta_desc ?? null, data.og_image ?? null,
-      data.title_sw ?? null, data.content_json_sw ?? null, publishedAt ?? null,
+      cleanedData.title ?? null, cleanedData.excerpt ?? null, cleanedData.content_json ?? null,
+      cleanedData.category_id ?? null, cleanedData.cover_image ?? null, cleanedData.status ?? null,
+      cleanedData.featured !== undefined ? (cleanedData.featured ? 1 : 0) : null,
+      cleanedData.meta_title ?? null, cleanedData.meta_desc ?? null, cleanedData.og_image ?? null,
+      cleanedData.title_sw ?? null, cleanedData.content_json_sw ?? null, publishedAt ?? null,
       post.id
     );
 
@@ -231,14 +253,11 @@ router.put('/:id', requireAuth, async (req, res, next) => {
 });
 
 // DELETE /api/posts/:id (soft delete → archived)
-router.delete('/:id', requireAuth, (req, res, next) => {
+router.delete('/:id', requireAuth, requireRole('admin'), (req, res, next) => {
   try {
     const db = getDb();
     const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found' });
-
-    const canDelete = req.user.id === post.author_id || ['admin'].includes(req.user.role);
-    if (!canDelete) return res.status(403).json({ error: 'Forbidden' });
 
     db.prepare("UPDATE posts SET status = 'archived', updated_at = unixepoch() WHERE id = ?").run(post.id);
     res.json({ message: 'Post archived' });
@@ -248,7 +267,7 @@ router.delete('/:id', requireAuth, (req, res, next) => {
 });
 
 // GET /api/posts/:id/revisions
-router.get('/:id/revisions', requireAuth, (req, res) => {
+router.get('/:id/revisions', requireAuth, requireRole('admin'), (req, res) => {
   const db = getDb();
   const revisions = db.prepare(
     'SELECT id, saved_at FROM revisions WHERE post_id = ? ORDER BY saved_at DESC LIMIT 20'

@@ -14,6 +14,13 @@ router.get('/', requireAuth, (req, res) => {
   res.json({ notifications, unread });
 });
 
+// GET /api/notifications/count
+router.get('/count', requireAuth, (req, res) => {
+  const db = getDb();
+  const unread = db.prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read = 0').get(req.user.id).c;
+  res.json({ unread });
+});
+
 // PATCH /api/notifications/:id/read
 router.patch('/:id/read', requireAuth, (req, res) => {
   const db = getDb();

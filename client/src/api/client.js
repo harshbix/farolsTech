@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   withCredentials: true,
 });
 
@@ -13,7 +13,10 @@ export function setAccessToken(token) {
 
 // Attach access token to every request
 api.interceptors.request.use((config) => {
-  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  if (accessToken) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
   return config;
 });
 
@@ -25,8 +28,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       try {
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const { data } = await axios.post(`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/refresh`, {}, { withCredentials: true });
         setAccessToken(data.accessToken);
+        original.headers = original.headers || {};
         original.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(original);
       } catch {

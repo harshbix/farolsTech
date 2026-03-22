@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
   username     TEXT    NOT NULL UNIQUE,
   email        TEXT    NOT NULL UNIQUE,
   password_hash TEXT   NOT NULL,
-  role         TEXT    NOT NULL DEFAULT 'reader',  -- reader | author | editor | admin
+  role         TEXT    NOT NULL DEFAULT 'viewer',  -- viewer | admin
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER,
   display_name TEXT,
   bio          TEXT,
   avatar_url   TEXT,

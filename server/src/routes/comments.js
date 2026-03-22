@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getDb } from '../db/client.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { broadcastComment, pushNotification } from '../services/websocket.js';
+import { sanitizePlainText } from '../utils/sanitize.js';
 import { z } from 'zod';
 
 const router = Router({ mergeParams: true });
@@ -41,6 +43,7 @@ router.post('/', requireAuth, (req, res, next) => {
       parent_id: z.number().int().optional().nullable(),
     });
     const { body, parent_id } = schema.parse(req.body);
+    const cleanBody = sanitizePlainText(body, 2000);
     const db = getDb();
 
     const post = db.prepare("SELECT id FROM posts WHERE id = ? AND status = 'published'").get(req.params.postId);
@@ -54,7 +57,7 @@ router.post('/', requireAuth, (req, res, next) => {
 
     const result = db.prepare(
       'INSERT INTO comments (post_id, author_id, parent_id, body) VALUES (?, ?, ?, ?)'
-    ).run(req.params.postId, req.user.id, parent_id ?? null, body);
+    ).run(req.params.postId, req.user.id, parent_id ?? null, cleanBody);
 
     const comment = db.prepare(`
       SELECT c.*, u.username, u.display_name, u.avatar_url
@@ -62,12 +65,25 @@ router.post('/', requireAuth, (req, res, next) => {
       WHERE c.id = ?
     `).get(result.lastInsertRowid);
 
-    // Notify post author
-    const postAuthor = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(req.params.postId);
-    if (postAuthor && postAuthor.author_id !== req.user.id) {
+    const postInfo = db.prepare('SELECT slug, author_id FROM posts WHERE id = ?').get(req.params.postId);
+
+    if (postInfo?.author_id && postInfo.author_id !== req.user.id) {
       db.prepare(
         "INSERT INTO notifications (user_id, type, payload_json) VALUES (?, 'comment', ?)"
-      ).run(postAuthor.author_id, JSON.stringify({ post_id: req.params.postId, comment_id: comment.id, from: req.user.username }));
+      ).run(postInfo.author_id, JSON.stringify({ post_id: req.params.postId, comment_id: comment.id, from: req.user.username }));
+
+      const unread = db.prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read = 0').get(postInfo.author_id).c;
+      pushNotification(postInfo.author_id, {
+        type: 'comment',
+        post_id: Number(req.params.postId),
+        comment_id: comment.id,
+        from: req.user.username,
+        unread,
+      });
+    }
+
+    if (postInfo?.slug) {
+      broadcastComment(postInfo.slug, comment);
     }
 
     res.status(201).json({ comment });
@@ -87,7 +103,8 @@ router.put('/:id', requireAuth, (req, res, next) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const { body } = z.object({ body: z.string().min(1).max(2000) }).parse(req.body);
-    db.prepare('UPDATE comments SET body = ?, updated_at = unixepoch() WHERE id = ?').run(body, comment.id);
+    const cleanBody = sanitizePlainText(body, 2000);
+    db.prepare('UPDATE comments SET body = ?, updated_at = unixepoch() WHERE id = ?').run(cleanBody, comment.id);
     res.json({ comment: db.prepare('SELECT * FROM comments WHERE id = ?').get(comment.id) });
   } catch (err) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });

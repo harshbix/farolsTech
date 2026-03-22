@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -11,7 +11,24 @@ import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import SEOHead from '../components/SEOHead.jsx';
 
-function EditorToolbar({ editor }) {
+function normalizeAssetUrl(url) {
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+
+  const configuredApi = import.meta.env.VITE_API_URL;
+  if (configuredApi && /^https?:\/\//i.test(configuredApi)) {
+    return new URL(url, configuredApi).toString();
+  }
+
+  if (url.startsWith('/uploads')) {
+    const fallbackApi = import.meta.env.VITE_API_ORIGIN || `${window.location.protocol}//${window.location.hostname}:3001`;
+    return new URL(url, fallbackApi).toString();
+  }
+
+  return url;
+}
+
+function EditorToolbar({ editor, onUploadClick }) {
   if (!editor) return null;
   const btn = (action, label, active = false) => (
     <button
@@ -36,6 +53,8 @@ function EditorToolbar({ editor }) {
       {btn(() => editor.chain().focus().toggleOrderedList().run(), '1. List', editor.isActive('orderedList'))}
       {btn(() => editor.chain().focus().toggleBlockquote().run(), '❝', editor.isActive('blockquote'))}
       {btn(() => editor.chain().focus().toggleCodeBlock().run(), '</>', editor.isActive('codeBlock'))}
+      <div className="w-px bg-surface-border mx-1" />
+      {btn(onUploadClick, 'Image')}
     </div>
   );
 }
@@ -43,6 +62,8 @@ function EditorToolbar({ editor }) {
 export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const imageInputRef = useRef(null);
   const [meta, setMeta] = useState({
     title: '', excerpt: '', cover_image: '', status: 'draft',
     meta_title: '', meta_desc: '', category_id: null,
@@ -96,8 +117,18 @@ export default function Editor() {
       ? api.put(`/posts/${id}`, payload)
       : api.post('/posts', payload),
     onSuccess: ({ data }) => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['posts', 'latest'] });
+      queryClient.invalidateQueries({ queryKey: ['trending'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-posts'] });
+
       toast.success(meta.status === 'published' ? 'Published! 🎉' : 'Draft saved');
-      if (!id) navigate(`/editor/${data.post.id}`);
+      if (data?.post?.status === 'published' && data?.post?.slug) {
+        navigate(`/posts/${data.post.slug}`);
+        return;
+      }
+
+      if (!id && data?.post?.id) navigate(`/editor/${data.post.id}`);
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Save failed'),
   });
@@ -121,6 +152,27 @@ export default function Editor() {
     setAutoSaveTimer(timer);
     return () => clearInterval(timer);
   }, [save, meta.title, editor]);
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !editor) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const { data } = await api.post('/uploads/posts/image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (data?.image?.url) {
+        const src = normalizeAssetUrl(data.image.url);
+        editor.chain().focus().setImage({ src, alt: meta.title || 'Farols image' }).run();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Image upload failed');
+    }
+  };
 
   return (
     <>
@@ -167,7 +219,14 @@ export default function Editor() {
 
         {/* Tiptap editor */}
         <div className="card">
-          <EditorToolbar editor={editor} />
+          <EditorToolbar editor={editor} onUploadClick={() => imageInputRef.current?.click()} />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
           <EditorContent editor={editor} />
         </div>
 

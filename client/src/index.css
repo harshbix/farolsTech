@@ -4,7 +4,49 @@
 
 @layer base {
   :root {
+    --surface-bg: 8 8 8;
+    --surface-raised: 20 20 20;
+    --surface-border: 56 56 56;
+    --surface-muted: 155 155 155;
+    --text-primary: 245 245 245;
+    --text-secondary: 161 161 161;
+
+    --brand-50: 250 250 250;
+    --brand-100: 245 245 245;
+    --brand-200: 229 229 229;
+    --brand-300: 212 212 212;
+    --brand-400: 163 163 163;
+    --brand-500: 115 115 115;
+    --brand-600: 82 82 82;
+    --brand-700: 64 64 64;
+    --brand-800: 38 38 38;
+    --brand-900: 23 23 23;
+    --brand-950: 10 10 10;
+
     color-scheme: dark;
+  }
+
+  :root.light {
+    --surface-bg: 250 250 250;
+    --surface-raised: 255 255 255;
+    --surface-border: 217 217 217;
+    --surface-muted: 115 115 115;
+    --text-primary: 17 17 17;
+    --text-secondary: 82 82 82;
+
+    --brand-50: 245 245 245;
+    --brand-100: 235 235 235;
+    --brand-200: 220 220 220;
+    --brand-300: 196 196 196;
+    --brand-400: 161 161 161;
+    --brand-500: 120 120 120;
+    --brand-600: 82 82 82;
+    --brand-700: 64 64 64;
+    --brand-800: 38 38 38;
+    --brand-900: 28 28 28;
+    --brand-950: 15 15 15;
+
+    color-scheme: light;
   }
 
   * {
@@ -12,7 +54,8 @@
   }
 
   body {
-    @apply bg-surface text-white font-sans;
+    @apply bg-surface font-sans;
+    color: rgb(var(--text-primary));
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -43,12 +86,12 @@
   }
 
   .btn-primary {
-    @apply btn bg-brand-600 hover:bg-brand-500 text-white
+    @apply btn bg-brand-900 hover:bg-brand-800 text-white
            focus:ring-brand-400 focus:ring-offset-2 focus:ring-offset-surface;
   }
 
   .btn-ghost {
-    @apply btn hover:bg-white/10 text-white focus:ring-white/20;
+    @apply btn hover:bg-brand-100/10 focus:ring-white/20;
   }
 
   .btn-danger {
@@ -61,9 +104,10 @@
 
   .input {
     @apply w-full bg-surface border border-surface-border rounded-lg
-           px-3 py-2 text-white placeholder-surface-muted
+           px-3 py-2 placeholder-surface-muted
            focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
            transition-colors duration-200;
+    color: rgb(var(--text-primary));
   }
 
   .badge {
@@ -75,23 +119,56 @@
   }
 
   .post-card {
-    @apply card p-4 hover:border-brand-700 transition-colors duration-200 group;
+    @apply flex flex-col transition-all duration-300 relative bg-transparent;
+  }
+
+  .post-card-img-wrapper {
+    @apply overflow-hidden rounded-[16px] mb-4 relative aspect-[16/9] bg-surface-muted/20;
+  }
+
+  .post-card-img {
+    @apply w-full h-full object-cover transition-transform duration-700;
+  }
+  .post-card:hover .post-card-img {
+    @apply scale-105;
+  }
+
+  .newsroom-category {
+    @apply text-[10px] md:text-xs font-bold uppercase tracking-widest text-[#737373] mb-2;
+  }
+
+  .newsroom-title {
+    @apply font-display font-semibold text-xl lg:text-2xl text-[rgb(var(--text-primary))] leading-tight mb-2 transition-colors;
+  }
+  .post-card:hover .newsroom-title {
+    @apply text-brand-500;
+  }
+
+  .newsroom-date {
+    @apply text-sm font-medium text-[rgb(var(--text-secondary))];
   }
 
   /* Prose for article content */
   .article-content {
-    @apply max-w-none text-gray-200 leading-relaxed;
+    @apply max-w-none leading-relaxed;
+    color: rgb(var(--text-primary));
   }
 
-  .article-content h1 { @apply text-3xl font-display font-bold mb-4 mt-8 text-white; }
-  .article-content h2 { @apply text-2xl font-display font-bold mb-3 mt-6 text-white; }
-  .article-content h3 { @apply text-xl font-display font-semibold mb-2 mt-5 text-white; }
+  .article-content h1 { @apply text-3xl font-display font-bold mb-4 mt-8; }
+  .article-content h2 { @apply text-2xl font-display font-bold mb-3 mt-6; }
+  .article-content h3 { @apply text-xl font-display font-semibold mb-2 mt-5; }
   .article-content p  { @apply mb-4; }
   .article-content a  { @apply text-brand-400 hover:text-brand-300 underline; }
-  .article-content blockquote { @apply border-l-4 border-brand-500 pl-4 italic text-gray-400 my-4; }
+  .article-content blockquote { @apply border-l-4 border-brand-500 pl-4 italic my-4; color: rgb(var(--text-secondary)); }
   .article-content ul { @apply list-disc pl-5 mb-4 space-y-1; }
   .article-content ol { @apply list-decimal pl-5 mb-4 space-y-1; }
-  .article-content img { @apply rounded-xl my-6 w-full object-cover; }
+  .article-content img {
+    @apply rounded-xl my-6 w-full object-contain;
+    max-width: min(100%, 820px);
+    max-height: 520px;
+    margin-left: auto;
+    margin-right: auto;
+  }
   .article-content code { @apply bg-surface rounded px-1.5 py-0.5 text-sm font-mono text-brand-300; }
   .article-content pre  { @apply bg-surface rounded-xl p-4 overflow-x-auto my-4; }
   .article-content mark { @apply bg-brand-600 text-white rounded px-0.5; }
@@ -111,10 +188,16 @@
   }
 
   .text-gradient {
-    @apply bg-gradient-to-r from-brand-400 to-cyan-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-white to-brand-300 bg-clip-text text-transparent;
   }
 
   .hover-lift {
     @apply transition-transform duration-200 hover:-translate-y-0.5;
   }
 }
+
+:root.light .text-white { color: rgb(17 17 17) !important; }
+:root.light .text-gray-400 { color: rgb(82 82 82) !important; }
+:root.light .text-gray-500 { color: rgb(110 110 110) !important; }
+:root.light .text-gray-300 { color: rgb(64 64 64) !important; }
+:root.light .glass { background: rgba(255, 255, 255, 0.75) !important; border-color: rgb(230 230 230) !important; }

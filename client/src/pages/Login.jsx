@@ -16,7 +16,7 @@ export default function Login() {
     onSuccess: ({ data }) => {
       setAuth(data.user, data.accessToken);
       toast.success(`Welcome back, ${data.user.username}!`);
-      navigate('/dashboard');
+      navigate(data.user?.role === 'admin' ? '/dashboard' : '/');
     },
     onError: (err) => toast.error(err.response?.data?.error || 'Login failed'),
   });
