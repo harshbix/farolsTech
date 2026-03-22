@@ -1,0 +1,114 @@
+import { Router } from 'express';
+import { getDb } from '../db/client.js';
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { z } from 'zod';
+
+const router = Router({ mergeParams: true });
+
+// GET /api/posts/:postId/comments
+router.get('/', optionalAuth, (req, res) => {
+  const db = getDb();
+  const comments = db.prepare(`
+    SELECT c.id, c.body, c.parent_id, c.created_at, c.updated_at,
+           u.username, u.display_name, u.avatar_url
+    FROM comments c
+    JOIN users u ON u.id = c.author_id
+    WHERE c.post_id = ?
+    ORDER BY c.created_at ASC
+  `).all(req.params.postId);
+
+  // Build tree (2 levels)
+  const roots = [];
+  const map = {};
+  for (const c of comments) {
+    map[c.id] = { ...c, replies: [] };
+  }
+  for (const c of comments) {
+    if (c.parent_id && map[c.parent_id]) {
+      map[c.parent_id].replies.push(map[c.id]);
+    } else {
+      roots.push(map[c.id]);
+    }
+  }
+  res.json({ comments: roots });
+});
+
+// POST /api/posts/:postId/comments
+router.post('/', requireAuth, (req, res, next) => {
+  try {
+    const schema = z.object({
+      body: z.string().min(1).max(2000),
+      parent_id: z.number().int().optional().nullable(),
+    });
+    const { body, parent_id } = schema.parse(req.body);
+    const db = getDb();
+
+    const post = db.prepare("SELECT id FROM posts WHERE id = ? AND status = 'published'").get(req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    if (parent_id) {
+      const parent = db.prepare('SELECT id, parent_id FROM comments WHERE id = ? AND post_id = ?').get(parent_id, req.params.postId);
+      if (!parent) return res.status(400).json({ error: 'Invalid parent comment' });
+      if (parent.parent_id) return res.status(400).json({ error: 'Cannot nest replies more than 2 levels' });
+    }
+
+    const result = db.prepare(
+      'INSERT INTO comments (post_id, author_id, parent_id, body) VALUES (?, ?, ?, ?)'
+    ).run(req.params.postId, req.user.id, parent_id ?? null, body);
+
+    const comment = db.prepare(`
+      SELECT c.*, u.username, u.display_name, u.avatar_url
+      FROM comments c JOIN users u ON u.id = c.author_id
+      WHERE c.id = ?
+    `).get(result.lastInsertRowid);
+
+    // Notify post author
+    const postAuthor = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(req.params.postId);
+    if (postAuthor && postAuthor.author_id !== req.user.id) {
+      db.prepare(
+        "INSERT INTO notifications (user_id, type, payload_json) VALUES (?, 'comment', ?)"
+      ).run(postAuthor.author_id, JSON.stringify({ post_id: req.params.postId, comment_id: comment.id, from: req.user.username }));
+    }
+
+    res.status(201).json({ comment });
+  } catch (err) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    next(err);
+  }
+});
+
+// PUT /api/comments/:id
+router.put('/:id', requireAuth, (req, res, next) => {
+  try {
+    const db = getDb();
+    const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+    if (comment.author_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { body } = z.object({ body: z.string().min(1).max(2000) }).parse(req.body);
+    db.prepare('UPDATE comments SET body = ?, updated_at = unixepoch() WHERE id = ?').run(body, comment.id);
+    res.json({ comment: db.prepare('SELECT * FROM comments WHERE id = ?').get(comment.id) });
+  } catch (err) {
+    if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
+    next(err);
+  }
+});
+
+// DELETE /api/comments/:id
+router.delete('/:id', requireAuth, (req, res, next) => {
+  try {
+    const db = getDb();
+    const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+    if (comment.author_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    db.prepare('DELETE FROM comments WHERE id = ?').run(comment.id);
+    res.json({ message: 'Comment deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
