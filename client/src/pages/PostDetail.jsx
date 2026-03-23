@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -95,6 +95,86 @@ function renderArticleContent(contentJson) {
   return contentJson;
 }
 
+function CommentActions({ commentId, initialScore = 0 }) {
+  const { isAuthenticated } = useAuthStore();
+  const { openLoginModal } = useUIStore();
+  const [score, setScore] = useState(initialScore || 0);
+  const [activeVote, setActiveVote] = useState(0);
+  const [isFlagging, setIsFlagging] = useState(false);
+  const [flagReason, setFlagReason] = useState('');
+
+  const voteMutation = useMutation({
+    mutationFn: (vote) => api.post(`/comments/${commentId}/vote`, { vote }),
+    onSuccess: ({ data }, vote) => {
+      setActiveVote(vote);
+      setScore(data?.score ?? 0);
+    },
+    onError: () => toast.error('Unable to register vote'),
+  });
+
+  const flagMutation = useMutation({
+    mutationFn: () => api.post(`/comments/${commentId}/flag`, { reason: flagReason }),
+    onSuccess: () => {
+      toast.success('Comment flagged for moderation');
+      setIsFlagging(false);
+      setFlagReason('');
+    },
+    onError: () => toast.error('Unable to flag comment'),
+  });
+
+  const guardAuth = () => {
+    if (isAuthenticated) return true;
+    openLoginModal();
+    return false;
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2 text-xs text-[rgb(var(--text-secondary))]">
+        <button
+          onClick={() => guardAuth() && voteMutation.mutate(1)}
+          disabled={voteMutation.isPending}
+          className={`px-2 py-1 rounded border border-surface-border transition-colors ${activeVote === 1 ? 'text-green-400 border-green-500/50' : 'hover:text-green-400'}`}
+        >
+          ▲
+        </button>
+        <span className="min-w-8 text-center font-semibold">{score}</span>
+        <button
+          onClick={() => guardAuth() && voteMutation.mutate(-1)}
+          disabled={voteMutation.isPending}
+          className={`px-2 py-1 rounded border border-surface-border transition-colors ${activeVote === -1 ? 'text-red-400 border-red-500/50' : 'hover:text-red-400'}`}
+        >
+          ▼
+        </button>
+        <button
+          onClick={() => guardAuth() && setIsFlagging((v) => !v)}
+          className="px-2 py-1 rounded border border-surface-border hover:text-yellow-300"
+        >
+          🚩 Flag
+        </button>
+      </div>
+
+      {isFlagging && (
+        <div className="mt-2 flex gap-2">
+          <input
+            value={flagReason}
+            onChange={(e) => setFlagReason(e.target.value)}
+            placeholder="Reason for flagging"
+            className="input text-xs py-1 flex-1"
+          />
+          <button
+            onClick={() => flagMutation.mutate()}
+            disabled={!flagReason.trim() || flagMutation.isPending}
+            className="btn-primary text-xs py-1 px-3"
+          >
+            {flagMutation.isPending ? 'Sending…' : 'Submit'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CommentItem({ comment, postId }) {
   const { user, isAuthenticated } = useAuthStore();
   const [replying, setReplying] = useState(false);
@@ -120,6 +200,7 @@ function CommentItem({ comment, postId }) {
         </div>
       </div>
       <p className="text-[rgb(var(--text-primary))] leading-relaxed mb-3">{comment.body}</p>
+      <CommentActions commentId={comment.id} initialScore={comment.score ?? 0} />
       {isAuthenticated && !comment.parent_id && (
         <button onClick={() => setReplying(!replying)} className="text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors">
           Reply
@@ -143,6 +224,7 @@ function CommentItem({ comment, postId }) {
             <span className="font-semibold text-xs text-[rgb(var(--text-primary))]">{r.display_name || r.username}</span>
           </div>
           <p className="text-[rgb(var(--text-secondary))] text-sm leading-relaxed">{r.body}</p>
+          <CommentActions commentId={r.id} initialScore={r.score ?? 0} />
         </div>
       ))}
     </div>
@@ -179,6 +261,11 @@ export default function PostDetail() {
     onSuccess: () => { setComment(''); qc.invalidateQueries(['comments', data.id]); },
     onError: () => toast.error('Failed to post comment'),
   });
+
+  useEffect(() => {
+    if (!isAuthenticated || !data?.id) return;
+    api.post(`/users/me/read/${data.id}`).catch(() => {});
+  }, [data?.id, isAuthenticated]);
 
   if (isLoading) return <PageLoader />;
   if (!data) return <div className="text-center py-20 text-[rgb(var(--text-secondary))]">Post not found</div>;

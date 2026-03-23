@@ -1,0 +1,1359 @@
+FAROLS  ■  PLATFORM SPEC
+Confidential — March 2026
+ FAROLS
+ Technical & Product Specification
+ Next-Generation Blog Platform for Tanzania
+ System Architecture · Engineering Specs · Market Analysis
+ Version 1.0 · March 2026 · Confidential
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 2
+TABLE OF CONTENTS
+1. Market & Competitor Analysis
+→ 1.1 Tanzanian Digital Landscape
+→ 1.2 Key Competitor Platforms
+→ 1.3 Market Gaps & Opportunities
+2. Product Vision
+→ 2.1 Core Value Proposition
+→ 2.2 Target Audience Segments
+→ 2.3 Differentiation Strategy
+3. System Architecture
+→ 3.1 Frontend — React
+→ 3.2 Backend — Express.js
+→ 3.3 Database — SQLite Schema
+4. Core Features — Engineering Spec
+→ 4.1 Authentication & User System
+→ 4.2 Content Management System
+→ 4.3 Publishing Workflow
+→ 4.4 Engagement Features
+→ 4.5 Advanced / Futuristic Features
+5. Security & Permissions
+→ 5.1 RBAC · 5.2 Input Validation · 5.3 Attack Mitigation
+6. Performance & Scalability
+→ 6.1 Caching · 6.2 CDN · 6.3 Migration Path
+7. Monetization Strategy
+→ 7.1 AdSense · 7.2 Sponsored Content · 7.3 Affiliate
+8. UI/UX Design Principles
+→ 8.1 Mobile-First · 8.2 Low-Bandwidth · 8.3 Accessibility
+9. Deployment & DevOps
+→ 9.1 Hosting · 9.2 CI/CD · 9.3 Monitoring
+10. Development Roadmap
+→ MVP · Beta · Production · Scaling
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 3
+SECTION 01
+Market & Competitor Analysis
+Tanzania's digital media market is one of East Africa's fastest-growing, driven by rapid smartphone penetration,
+affordable mobile data from Vodacom, Airtel, and Halotel, and a predominantly young population eager for local
+content. Yet the ecosystem remains underserved: legacy news sites built in the mid-2000s dominate, offering poor
+mobile UX, slow load times, and minimal personalization. Farols enters this space with a modern, performance-first
+architecture positioned to capture both urban tech-savvy readers and semi-urban mobile-first audiences.
+ 63%
+ 28M+
+ 42%
+ TZS 2.4T
+ Mobile internet users TZ
+ Active internet users
+ 18–35 age bracket
+ Digital ad market size
+1.1 Tanzanian Digital Landscape
+The Tanzanian blog and news ecosystem can be segmented into four tiers based on traffic, editorial investment,
+and monetization sophistication:
+Platform / Tier
+Category
+Posting
+Freq.
+Monetization
+Mobile Score
+IPPMedia (The Citizen)
+News / General
+20–40/day
+Display ads, subscriptions
+Fair (60/100)
+Mwananchi Digital
+Swahili News
+15–30/day
+Display ads, sponsored
+Fair (55/100)
+TechTrends.co.tz
+Tech Blog
+2–5/week
+AdSense, affiliate
+Poor (40/100)
+Bongo5
+Entertainment
+10–20/day
+Ads, event tickets
+Fair (58/100)
+Nukta Afrika
+Pan-African Tech
+3–7/week
+Sponsored, newsletter
+Good (72/100)
+Independent bloggers
+Niche / Personal
+Irregular
+AdSense (minimal)
+Varies
+1.2 Content Strategy Patterns
+ Breaking News Aggregation: Major outlets repurpose wire content (AFP, Reuters) with minimal local
+context. First-mover advantage is rarely exploited due to slow CMS workflows.
+ Swahili vs. English split: ~65% of content is in Swahili but most tech coverage is English-only — a
+significant gap for localization.
+ Mobile reading patterns: Average session length is under 90 seconds; users skim headlines and share to
+WhatsApp groups rather than commenting on-site.
+ Comment culture: On-site commenting is nearly extinct. Facebook and WhatsApp Groups are the de-facto
+comment sections for Tanzanian readers.
+ Monetization maturity: Most platforms rely purely on Google AdSense. Programmatic advertising, native
+ads, and newsletter monetization are virtually unused.
+ Social sharing: WhatsApp is the #1 sharing channel (estimated 70% of shares), followed by Facebook, then
+Twitter/X. Telegram groups are emerging.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 4
+1.3 Competitor Weaknesses
+Weakness
+Affected Platforms
+Farols Opportunity
+Core Web Vitals scores below 50
+All major TZ platforms
+Sub-2s LCP via edge caching + lean
+React
+No dark mode / accessibility
+All
+Ship dark mode + WCAG 2.1 AA
+from day 1
+No personalized feed
+All TZ platforms
+Behavior-based feed algorithm
+WhatsApp sharing not integrated
+Most
+One-tap WhatsApp share with OG
+previews
+No offline reading
+All
+PWA with service worker caching
+No breaking-news fast lane
+All except Mwananchi
+Breaking News badge + push
+notifications
+Poor Swahili tech coverage
+All
+Bilingual CMS with Swahili-first
+toggle
+No writer economy
+All
+Writer profiles, stats, tip jar future
+1.4 Market Gaps Farols Can Exploit
+ Tech + Breaking News hybrid: No platform combines fast-breaking news with deep tech analysis in a single
+bilingual product.
+ Performance-first architecture: All competitors score below 60 on Lighthouse mobile. A sub-2s load time is
+a genuine competitive moat on slow Tanzanian 3G.
+ WhatsApp-native sharing: Deeply integrated share previews with rich Open Graph metadata drive viral
+loops unavailable on current platforms.
+ Writer economy: A platform that pays or rewards Tanzanian writers builds supply-side loyalty competitors
+cannot easily replicate.
+ Community without Facebook: With Facebook algorithm changes reducing reach, an on-platform
+community with threaded comments fills a real void.
+■ Strategic Insight: The single highest-leverage move is a mobile performance edge. In Tanzania, a 1-second
+improvement in page load correlates with a ~15% increase in page views based on African market studies. Farols
+should treat Lighthouse score as a product KPI, not a developer metric.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 5
+SECTION 02
+Product Vision
+Farols is positioned as a modern, performant, socially-integrated content platform that serves Tanzanian
+readers who want fast, trustworthy tech and news coverage — accessible on a 3G connection, readable in both
+English and Swahili, and shareable to WhatsApp in one tap. The product philosophy borrows from Medium's
+editorial depth, Twitter's real-time speed, and Reddit's community engagement — rebuilt from the ground up for the
+East African mobile context.
+2.1 Core Value Proposition
+For Tanzanian readers aged 18–40: Farols is the only platform that delivers breaking tech and news content that
+loads in under 2 seconds on mobile, personalizes your feed based on what you read, and lets you share directly to
+WhatsApp — in English or Swahili.
+2.2 Target Audience Segments
+Segment
+Profile
+Primary Need
+Key Feature
+Urban Tech Reader
+22–35, Dar es Salaam,
+smartphone, 4G
+Deep tech analysis
+Personalized feed,
+bookmarks
+News Follower
+18–45, any city, 3G
+Fast breaking news
+Breaking badge, push
+alerts
+Semi-urban Reader
+25–50, upcountry, 2G/3G
+Affordable content
+Lite mode, offline PWA
+Content Creator
+Writer/journalist
+Audience + income
+Analytics, writer profile
+Advertiser / Brand
+SME to enterprise
+Targeted reach
+Sponsored posts,
+analytics
+2.3 Differentiation Strategy
+ Speed as a feature: Lighthouse score ≥90 mobile is a product requirement, not a nice-to-have. Every release
+is gated on performance budgets.
+ Bilingual by design: The CMS supports parallel English/Swahili fields. The front-end switches language
+without a page reload.
+ WhatsApp-first sharing: Share metadata (OG image + title) is auto-generated per article. WhatsApp
+previews are tested before every publish.
+ Real-time breaking news: A dedicated fast-publish mode bypasses the editorial queue for breaking news,
+pushing to all subscribers via WebSocket within 30 seconds of publish.
+ Engagement without toxicity: Threaded comments with upvote/downvote, ML-assisted spam filter, and
+one-click moderation reduce the noise that drove Tanzanian readers to WhatsApp groups.
+ Writer-centric economics: Writer dashboards with read counts, engagement heatmaps, and a future tip-jar
+feature build platform loyalty among content creators.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 6
+SECTION 03
+System Architecture
+The Farols stack is deliberately chosen for a lean team: React on the frontend for component reuse and ecosystem
+richness; Express.js on the backend for simplicity and Node.js alignment; SQLite for zero-ops local storage during
+MVP with a clean migration path to PostgreSQL. The architecture is service-boundary-aware so individual
+components can be extracted into microservices as traffic grows.
+3.0 High-Level Architecture Diagram
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+■                     FAROLS PLATFORM v1.0                       ■
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+■  React SPA     ■  Express.js API   ■  SQLite (WAL mode)         ■
+■  (Vite build)  ■  Port :4000       ■  /var/farols/db.sqlite     ■
+■                ■                   ■                            ■
+■  React Router  ■  /api/v1/*        ■  Tables:                   ■
+■  React Query   ■  JWT Middleware   ■  users, posts, comments    ■
+■  Zustand       ■  Rate Limiter     ■  likes, shares, tags       ■
+■  Tailwind CSS  ■  WebSocket (ws)   ■  categories, notifications ■
+■                ■  Multer (uploads) ■  roles, audit_logs         ■
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+■  CDN (Cloudflare) ←■■ static assets  ←■■ /public/              ■
+■  Service Worker ←■■ PWA offline cache                          ■
+■  WhatsApp / FB share ←■■ OG meta per article                   ■
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+3.1 Frontend — React (Vite)
+Component Architecture
+The component tree follows Atomic Design: atoms (Button, Badge, Avatar), molecules (ArticleCard,
+CommentThread, TagPill), organisms (Header, FeedList, Editor), templates (MainLayout, AuthLayout,
+AdminLayout), and pages. All components are written as functional components with hooks. No class components.
+src/
+  components/
+    atoms/       Button.jsx, Badge.jsx, Avatar.jsx, Spinner.jsx
+    molecules/   ArticleCard.jsx, CommentThread.jsx, LikeButton.jsx
+    organisms/   Header.jsx, FeedList.jsx, RichEditor.jsx, Sidebar.jsx
+    templates/   MainLayout.jsx, AuthLayout.jsx, AdminLayout.jsx
+  pages/
+    Home.jsx, Article.jsx, Profile.jsx, Editor.jsx
+    Admin/       Dashboard.jsx, Posts.jsx, Users.jsx, Moderation.jsx
+  hooks/         useAuth.js, useFeed.js, useWebSocket.js, useTheme.js
+  store/         authStore.js, feedStore.js, notifStore.js  (Zustand)
+  api/           client.js (axios), posts.js, auth.js, comments.js
+  utils/         formatDate.js, slugify.js, readTime.js, share.js
+State Management
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 7
+ Zustand (global): Auth state (user, token, role), notification count, theme (dark/light), offline status.
+ React Query (server state): All API data — feeds, posts, comments. Automatic cache invalidation,
+background refetch, optimistic updates for likes.
+ React Context: Theme context passed to Tailwind's dark mode class; editor context for draft auto-save state.
+ Local component state: Form inputs, modal visibility, UI toggles. No global state for ephemeral UI.
+Routing Strategy
+React Router v6 with lazy-loaded routes. Every route component is wrapped in React.lazy() and Suspense with a
+skeleton loader fallback. Protected routes use a RequireAuth wrapper that checks Zustand auth state. Admin
+routes additionally check the user's role claim from the JWT payload.
+/ (Home — Feed)         → lazy(Home)
+/article/:slug          → lazy(Article)
+/profile/:username      → lazy(Profile)
+/write                  → RequireAuth → lazy(Editor)
+/admin/*                → RequireAuth + RequireRole(admin) → lazy(Admin)
+/login  /register       → GuestOnly → lazy(Auth)
+SEO Strategy
+ Server-side rendering: For MVP, use react-snap or a lightweight SSR via Express to pre-render article
+pages for Googlebot. Full Next.js migration is planned for Phase 3.
+ React Helmet Async: Every page sets , meta description, og:image, og:title, og:type, article:published_time,
+article:author dynamically.
+ Structured data: Article schema (JSON-LD) injected into every article page for Google News eligibility.
+ Sitemap: Auto-generated sitemap.xml from Express route that queries all published post slugs. Submitted to
+Google Search Console.
+ Canonical URLs: Every article has a canonical link element to prevent duplicate content penalties from
+category/tag URL variants.
+Performance Optimization
+ Code splitting: Vite's automatic chunk splitting per route. Vendor chunk separated from app code.
+ Image optimization: All user-uploaded images auto-converted to WebP via Sharp on the backend.
+Responsive img tags with srcSet generated for 400w, 800w, 1200w.
+ Lazy loading: Images below the fold use loading='lazy'. IntersectionObserver triggers article list pagination.
+ Font subsetting: Google Fonts loaded with display=swap and preloaded. Only latin and latin-ext subsets to
+minimize KB.
+ Service Worker (PWA): Workbox precaches shell (HTML, CSS, JS). Runtime caches article pages with
+stale-while-revalidate strategy for 24h.
+ Bundle budget: Main bundle < 150KB gzipped. Lighthouse mobile score target ≥ 90.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 8
+3.2 Backend — Express.js
+Project Structure
+server/
+  index.js                 Entry point, HTTP + WS server
+  config/
+    database.js            better-sqlite3 init, WAL mode, pragmas
+    constants.js           roles, limits, env keys
+  middleware/
+    auth.js                JWT verify, attach req.user
+    rbac.js                requireRole(role) factory
+    rateLimiter.js         express-rate-limit per route
+    validate.js            express-validator schemas
+    errorHandler.js        central error -> JSON response
+    logger.js              morgan + winston
+  routes/
+    auth.js   posts.js   comments.js   likes.js
+    users.js  tags.js    categories.js  admin.js
+    notifications.js       shares.js
+  services/
+    postService.js         business logic, no DB calls
+    feedService.js         trending algorithm
+    notifService.js        push + WebSocket notifications
+    searchService.js       FTS5 queries
+  db/
+    queries/               one file per domain (raw SQL)
+    migrations/            numbered .sql files
+  utils/
+    slugify.js  sanitize.js  imageProcess.js  crypto.js
+  websocket/
+    wsServer.js            connection registry, rooms
+    handlers.js            on(comment), on(like), on(notification)
+API Design — REST v1
+The API follows REST conventions with JSON responses. All endpoints are prefixed /api/v1/. Error responses use
+a consistent shape: {success: false, error: {code, message, details}}. Success responses: {success: true, data: {...},
+meta: {page, total, limit}}.
+Method
+Endpoint
+Auth
+Description
+POST
+/api/v1/auth/register
+—
+Register with email + password
+POST
+/api/v1/auth/login
+—
+Login, returns JWT + refresh token
+POST
+/api/v1/auth/refresh
+Refresh JWT
+Rotate access token
+GET
+/api/v1/posts?page&limit;&category;&tag
+;
+—
+Paginated feed
+GET
+/api/v1/posts/:slug
+—
+Single article by slug
+POST
+/api/v1/posts
+Writer+
+Create post (draft)
+PATCH
+/api/v1/posts/:id
+Owner|Editor+
+Update post
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 9
+Method
+Endpoint
+Auth
+Description
+DELETE
+/api/v1/posts/:id
+Owner|Admin
+Delete post
+POST
+/api/v1/posts/:id/publish
+Editor+
+Publish draft
+GET
+/api/v1/posts/trending
+—
+Trending posts (algorithm)
+GET
+/api/v1/posts/:id/comments
+—
+Threaded comments
+POST
+/api/v1/posts/:id/comments
+User+
+Add root comment
+POST
+/api/v1/comments/:id/reply
+User+
+Threaded reply
+PUT
+/api/v1/comments/:id/vote
+User+
+Upvote/downvote comment
+POST
+/api/v1/posts/:id/like
+User+
+Toggle like
+POST
+/api/v1/posts/:id/share
+—
+Record share event
+GET
+/api/v1/users/:username
+—
+Public profile
+GET
+/api/v1/users/me/feed
+User+
+Personalized feed
+GET
+/api/v1/notifications
+User+
+User notifications
+GET
+/api/v1/search?q=
+—
+Full-text search (FTS5)
+GET
+/api/v1/admin/posts
+Admin
+All posts + status
+GET
+/api/v1/admin/users
+Admin
+All users
+POST
+/api/v1/admin/moderate/:id
+Admin
+Flag/remove content
+Middleware Stack (per request)
+Request →
+  1. helmet()              Security headers (CSP, X-Frame-Options, etc.)
+  2. cors()                Origin whitelist from env
+  3. express.json()        Body parsing, 10kb limit
+  4. morgan()              HTTP access log
+  5. rateLimiter()         100 req/15min per IP (global); stricter per route
+  6. auth() [if protected] Verify JWT, attach req.user
+  7. validate()            express-validator schema check
+  8. route handler()
+  9. errorHandler()        Catch all throws, format JSON error
+ 10. Response
+Authentication — JWT + Refresh Token
+ Access token: HS256 JWT, 15-minute expiry. Payload: {userId, username, role, iat, exp}.
+ Refresh token: 64-byte random hex stored in DB (refresh_tokens table). 30-day expiry. Sent as httpOnly
+cookie; not accessible to JS.
+ Token rotation: Each refresh call issues a new access token AND a new refresh token (old one deleted).
+Detects reuse attacks.
+ Password hashing: bcrypt with cost factor 12. Minimum password 8 chars enforced at validation layer.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 10
+ Social login (Phase 2): Google OAuth 2.0 via Passport.js. On first OAuth login, create user with generated
+username and empty password hash.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 11
+3.3 Database — SQLite (better-sqlite3)
+SQLite in WAL (Write-Ahead Logging) mode supports concurrent reads and sequential writes suitable for an
+early-stage platform handling up to ~1,000 concurrent users. All queries use parameterized statements (never
+string concatenation). The schema is normalized to 3NF. FTS5 virtual tables power full-text search.
+Pragmas (applied on connection init)
+PRAGMA journal_mode = WAL;       -- concurrent reads
+PRAGMA synchronous = NORMAL;     -- balance durability/speed
+PRAGMA foreign_keys = ON;        -- enforce FK constraints
+PRAGMA cache_size = -64000;      -- 64MB page cache
+PRAGMA temp_store = MEMORY;      -- temp tables in RAM
+PRAGMA mmap_size = 268435456;    -- 256MB memory-mapped IO
+Schema — All Tables
+Table: users
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  username    TEXT NOT NULL UNIQUE
+  email       TEXT NOT NULL UNIQUE
+  password_hash TEXT
+  display_name  TEXT
+  bio         TEXT
+  avatar_url  TEXT
+  role_id     INTEGER NOT NULL DEFAULT 4 REFERENCES roles(id)
+  is_active   INTEGER NOT NULL DEFAULT 1
+  is_verified INTEGER NOT NULL DEFAULT 0
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  last_login  TEXT
+Table: roles
+  id          INTEGER PRIMARY KEY
+  name        TEXT NOT NULL UNIQUE   -- admin|editor|writer|user
+  description TEXT
+Table: permissions
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  role_id     INTEGER NOT NULL REFERENCES roles(id)
+  resource    TEXT NOT NULL           -- post|comment|user|admin
+  action      TEXT NOT NULL           -- create|read|update|delete|publish
+  UNIQUE(role_id, resource, action)
+Table: posts
+  id           INTEGER PRIMARY KEY AUTOINCREMENT
+  title        TEXT NOT NULL
+  slug         TEXT NOT NULL UNIQUE
+  content      TEXT NOT NULL          -- HTML from editor
+  excerpt      TEXT
+  cover_image  TEXT
+  author_id    INTEGER NOT NULL REFERENCES users(id)
+  category_id  INTEGER REFERENCES categories(id)
+  status       TEXT NOT NULL DEFAULT 'draft'
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 12
+               --  draft|review|published|scheduled|archived
+  is_breaking  INTEGER NOT NULL DEFAULT 0
+  scheduled_at TEXT
+  published_at TEXT
+  read_time    INTEGER                -- minutes
+  view_count   INTEGER NOT NULL DEFAULT 0
+  seo_title    TEXT
+  seo_desc     TEXT
+  seo_keywords TEXT
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+Table: post_revisions
+  id         INTEGER PRIMARY KEY AUTOINCREMENT
+  post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  author_id  INTEGER NOT NULL REFERENCES users(id)
+  title      TEXT NOT NULL
+  content    TEXT NOT NULL
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+Table: categories
+  id         INTEGER PRIMARY KEY AUTOINCREMENT
+  name       TEXT NOT NULL UNIQUE
+  slug       TEXT NOT NULL UNIQUE
+  description TEXT
+  color      TEXT                     -- hex for UI badge
+Table: tags
+  id   INTEGER PRIMARY KEY AUTOINCREMENT
+  name TEXT NOT NULL UNIQUE
+  slug TEXT NOT NULL UNIQUE
+Table: post_tags
+  post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE
+  PRIMARY KEY(post_id, tag_id)
+Table: comments
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  post_id     INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  author_id   INTEGER NOT NULL REFERENCES users(id)
+  parent_id   INTEGER REFERENCES comments(id) ON DELETE CASCADE
+  content     TEXT NOT NULL
+  score       INTEGER NOT NULL DEFAULT 0  -- upvotes - downvotes
+  is_flagged  INTEGER NOT NULL DEFAULT 0
+  is_removed  INTEGER NOT NULL DEFAULT 0
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+Table: comment_votes
+  user_id    INTEGER NOT NULL REFERENCES users(id)
+  comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 13
+  vote       INTEGER NOT NULL  -- +1 or -1
+  PRIMARY KEY(user_id, comment_id)
+Table: likes
+  user_id    INTEGER NOT NULL REFERENCES users(id)
+  post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  PRIMARY KEY(user_id, post_id)
+Table: shares
+  id         INTEGER PRIMARY KEY AUTOINCREMENT
+  post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  platform   TEXT NOT NULL  -- whatsapp|facebook|twitter|copy
+  ip_hash    TEXT           -- anonymized for dedup
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+Table: bookmarks
+  user_id    INTEGER NOT NULL REFERENCES users(id)
+  post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  PRIMARY KEY(user_id, post_id)
+Table: notifications
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  user_id     INTEGER NOT NULL REFERENCES users(id)
+  type        TEXT NOT NULL  -- like|comment|reply|follow|breaking
+  actor_id    INTEGER REFERENCES users(id)
+  post_id     INTEGER REFERENCES posts(id) ON DELETE CASCADE
+  comment_id  INTEGER REFERENCES comments(id) ON DELETE CASCADE
+  message     TEXT
+  is_read     INTEGER NOT NULL DEFAULT 0
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+Table: user_reads
+  user_id     INTEGER NOT NULL REFERENCES users(id)
+  post_id     INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+  category_id INTEGER REFERENCES categories(id)
+  read_at     TEXT NOT NULL DEFAULT (datetime('now'))
+  read_pct    INTEGER DEFAULT 0   -- 0-100, scroll depth
+  PRIMARY KEY(user_id, post_id)
+Table: audit_logs
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  actor_id    INTEGER REFERENCES users(id)
+  action      TEXT NOT NULL
+  target_type TEXT             -- post|comment|user
+  target_id   INTEGER
+  ip          TEXT
+  details     TEXT             -- JSON blob
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+Table: refresh_tokens
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 14
+  id          INTEGER PRIMARY KEY AUTOINCREMENT
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE
+  token_hash  TEXT NOT NULL UNIQUE  -- SHA-256 of raw token
+  expires_at  TEXT NOT NULL
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+Table: posts_fts (FTS5 virtual)
+  content=posts
+  content_rowid=id
+  tokenize='unicode61'
+  Columns: title, content, excerpt, seo_keywords
+Indexing Strategy
+CREATE INDEX idx_posts_status_published ON posts(status, published_at DESC);
+CREATE INDEX idx_posts_author ON posts(author_id);
+CREATE INDEX idx_posts_category ON posts(category_id);
+CREATE INDEX idx_posts_slug ON posts(slug);
+CREATE INDEX idx_comments_post ON comments(post_id, parent_id, created_at DESC);
+CREATE INDEX idx_likes_post ON likes(post_id);
+CREATE INDEX idx_likes_user ON likes(user_id);
+CREATE INDEX idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
+CREATE INDEX idx_user_reads_user ON user_reads(user_id, read_at DESC);
+CREATE INDEX idx_shares_post ON shares(post_id, created_at DESC);
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 15
+SECTION 04
+Core Features — Engineering Spec
+4.1 Authentication & User System
+Registration Flow
+1. POST /api/v1/auth/register
+   Body: { email, username, password, displayName }
+   → Validate: email format, username /^[a-z0-9_]{3,30}$/, password ≥8 chars
+   → Check uniqueness: users.email, users.username
+   → Hash password: bcrypt(password, 12)
+   → Insert user with role_id=4 (user)
+   → Send verification email (Nodemailer + SMTP / future: SendGrid)
+   → Return: { success: true, data: { user: {id, username, email} } }
+2. GET /api/v1/auth/verify?token=
+   → Look up token in verification_tokens table
+   → SET users.is_verified=1
+   → Delete used token
+   → Redirect to /login?verified=1
+Role-Based Access Control (RBAC)
+Role
+ID
+Can Create
+Post
+Can Publish
+Can Edit Others
+Access Admin
+Admin
+1
+✓
+✓
+✓
+✓
+Editor
+2
+✓
+✓
+✓ (any)
+Partial
+Writer
+3
+✓
+✗ (submit
+only)
+✗
+✗
+User
+4
+✗
+✗
+✗
+✗
+Profile System
+ Avatar upload: image/jpeg or image/png, max 2MB. Server resizes to 200x200 WebP via Sharp. Stored in
+/uploads/avatars/.
+ Bio: max 300 chars, sanitized via DOMPurify-equivalent on server.
+ Activity tracking: post_count (denormalized), total_likes_received, total_comments, join_date.
+ Follow system (Phase 2): user_follows table (follower_id, following_id). Used for personalized feed weighting.
+4.2 Content Management System (CMS)
+Rich Text Editor
+Use Tiptap v2 (ProseMirror-based). Chosen over Quill/CKEditor for its headless architecture, React integration,
+and extension system. Extensions enabled:
+ StarterKit (bold, italic, headings H1–H4, lists, blockquote, code, horizontal rule)
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 16
+ Image — with custom upload handler that POSTs to /api/v1/media/upload and inserts the returned URL
+ CodeBlockLowlight — syntax highlighting via lowlight (highlight.js subset)
+ Link — auto-detect URLs, set rel='noopener noreferrer' on external links
+ Youtube — embed YouTube videos by URL
+ Twitter — embed tweets by URL
+ CharacterCount — word count display in toolbar
+ Placeholder — 'Start writing your story...'
+Draft, Scheduling & Revisions
+Auto-save:  Every 30 seconds, if content has changed, PATCH /api/v1/posts/:id
+            with { content, title } and status='draft'. Debounced with 500ms.
+Revisions:  On each manual save (Ctrl+S / Save button), insert into post_revisions.
+            Keep last 20 revisions. Older ones pruned by a nightly cron job.
+            Diff view (planned Phase 2): diff-match-patch library.
+Scheduling: Set scheduled_at datetime. A cron job (node-cron, every 1 min)
+            queries: SELECT * FROM posts WHERE status='scheduled'
+                     AND scheduled_at <= datetime('now')
+            → SET status='published', published_at=datetime('now')
+            → Trigger WebSocket broadcast to all subscribers.
+Category & Tagging
+ Categories: Predefined by admins (Technology, Business, Politics, Sports, Entertainment, Lifestyle). Each
+post belongs to exactly one category.
+ Tags: Many-to-many via post_tags. Writers can select existing tags or create new ones (pending admin
+approval flag for new tags).
+ Category page: GET /api/v1/posts?category=&page;=1&limit;=20. Results sorted by published_at DESC.
+ Tag page: GET /api/v1/posts?tag=. Same pagination.
+SEO Metadata Fields
+ seo_title: defaults to post title if empty; max 70 chars; preview shown in editor.
+ seo_desc: defaults to first 160 chars of excerpt; max 160 chars.
+ seo_keywords: comma-separated; max 10 keywords.
+ slug: auto-generated from title via slugify(title); editable; must be unique.
+ OG image: defaults to cover_image; if none, use Farols branded default OG card.
+4.3 Publishing Workflow
+WRITER creates post → status: 'draft'
+WRITER clicks 'Submit for Review' → status: 'review'
+    → notification sent to all Editors
+EDITOR reviews → Accept: status: 'published', published_at = now()
+              → Reject: comment added, status back to 'draft'
+              → Schedule: scheduled_at set, status: 'scheduled'
+BREAKING NEWS fast-path (Editor+ only):
+  POST /api/v1/posts with { ..., is_breaking: true }
+  → Skips review queue
+  → Instantly published
+  → WebSocket event 'breaking_news' broadcast to all connected clients
+  → Push notification sent to subscribers
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 17
+4.4 Engagement Features
+Likes System
+The likes system uses a toggle model (like = insert, unlike = delete from likes table) with optimistic UI updates to
+mask network latency — critical on slow Tanzanian connections.
+API:  POST /api/v1/posts/:id/like  (auth required)
+Server logic:
+  const existing = db.prepare('SELECT 1 FROM likes WHERE user_id=? AND post_id=?')
+                     .get(userId, postId);
+  if (existing) {
+    db.prepare('DELETE FROM likes WHERE user_id=? AND post_id=?').run(userId, postId);
+    return { liked: false, count: getLikeCount(postId) };
+  } else {
+    db.prepare('INSERT INTO likes(user_id,post_id) VALUES(?,?)').run(userId, postId);
+    createNotification(post.author_id, 'like', userId, postId);
+    return { liked: true, count: getLikeCount(postId) };
+  }
+Rate limit: 10 likes/minute per user (prevent bot inflation).
+Optimistic UI (React Query mutation):
+  onMutate: update local cache immediately (flip liked bool, ±1 count)
+  onError:  roll back to previous cache state
+  onSettled: refetch to sync truth from server
+Comments System
+Threaded comments support two levels: root comments and replies. Deeper nesting is intentionally avoided to
+prevent conversation fragmentation common on platforms like Reddit. The tree is built client-side from a flat list
+returned by the API (parent_id grouping).
+Fetch comments:
+  GET /api/v1/posts/:id/comments?page=1&limit;=20&sort;=top|new
+  Query (top sort):
+    SELECT c.*, u.username, u.avatar_url,
+           (SELECT vote FROM comment_votes WHERE user_id=:me AND comment_id=c.id) AS my_vote
+    FROM comments c JOIN users u ON c.author_id=u.id
+    WHERE c.post_id=:postId AND c.parent_id IS NULL AND c.is_removed=0
+    ORDER BY c.score DESC, c.created_at DESC
+    LIMIT :limit OFFSET :offset
+Fetch replies for a root comment:
+  GET /api/v1/comments/:id/replies
+  Same query with WHERE parent_id=:id
+Upvote/Downvote:
+  PUT /api/v1/comments/:id/vote  Body: { vote: 1 | -1 | 0 }
+  → INSERT OR REPLACE INTO comment_votes
+  → UPDATE comments SET score = score + delta
+  → delta = newVote - (oldVote ?? 0)
+Moderation:
+  PUT /api/v1/comments/:id/flag     — user flags comment
+  DELETE /api/v1/comments/:id       — removes own comment (sets is_removed=1)
+  Admin: GET /api/v1/admin/flagged-comments  — moderation queue
+         PUT /api/v1/admin/comments/:id/remove  — admin removal
+Spam filter (Phase 2): Akismet API or a local keyword blocklist on insert.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 18
+Real-time Comment Updates (WebSocket)
+Client connects: new WebSocket('wss://api.farols.co.tz/ws')
+Client sends:    { type: 'join_post', postId: 42 }
+Server:          wsServer.rooms.get(42).add(ws)
+On new comment insert (server):
+  broadcast to room(postId): { type: 'new_comment', data: commentObj }
+Client handler (React):
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'new_comment') {
+      queryClient.setQueryData(['comments', postId], (old) =>
+        { ...old, comments: [msg.data, ...old.comments] }
+      );
+    }
+  }
+Fallback: if WebSocket fails, poll GET /api/v1/posts/:id/comments?since=
+every 15 seconds (for older browsers / poor connections).
+Sharing System
+Platform
+URL Template
+Analytics Event
+WhatsApp
+https://wa.me/?text={title}%20{url}
+share.whatsapp
+Twitter/X
+https://twitter.com/intent/tweet?text={title}&url;={url}
+share.twitter
+Facebook
+https://www.facebook.com/sharer/sharer.php?u={url}
+share.facebook
+Copy Link
+navigator.clipboard.writeText(url)
+share.copy
+Telegram
+https://t.me/share/url?url={url}&text;={title}
+share.telegram
+On each share event (client-side fire-and-forget): POST /api/v1/posts/:id/share {platform}. Server inserts into
+shares table with anonymized IP hash (SHA-256 of IP). Share counts are aggregated and displayed on the article
+page. Share analytics per platform visible in the admin dashboard.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 19
+4.5 Advanced Features
+Real-Time Notifications
+Types: like, comment, reply, follow, breaking_news, post_published
+Delivery channels:
+  1. In-app (WebSocket broadcast + badge count in header)
+  2. Web Push (Service Worker + Push API) — requires user opt-in
+     Server: web-push npm package, VAPID keys from env
+     Client: navigator.serviceWorker.pushManager.subscribe()
+Notification dot: GET /api/v1/notifications/count → { unread: 5 }
+  Polled every 30s if WebSocket unavailable.
+Mark read: PUT /api/v1/notifications/read-all
+           PUT /api/v1/notifications/:id/read
+Trending Algorithm
+Trending score is calculated on-the-fly, not stored, to avoid stale ranks. The algorithm is a decay function weighted
+by engagement quality:
+trending_score = (
+  (likes * 3) +
+  (comments * 5) +
+  (shares * 4) +
+  (views * 0.5)
+) / POWER((hours_since_published + 2), 1.5)
+-- hours_since_published = (unixepoch('now') - unixepoch(published_at)) / 3600.0
+-- Gravity factor 1.5 decays older content faster than Hacker News (1.8)
+-- Breaking news posts get +500 flat bonus for first 2 hours
+Cached in memory (Map) and refreshed every 5 minutes by a
+node-cron job to avoid re-computing on every feed request.
+Personalized Feed Algorithm
+Signals from user_reads table:
+  - category affinity:  count reads per category → weight 0.0–1.0
+  - tag affinity:       count reads per tag via post_tags join
+  - author affinity:    count reads per author (future: explicit follows)
+  - recency of reads:   exponential decay, reads >7 days old weighted 0.1
+Feed query (simplified):
+  SELECT p.*,
+    (cat_weight * 0.4 + tag_weight * 0.3 + author_weight * 0.2
+     + trending_score_normalized * 0.1) AS personalization_score
+  FROM posts p
+  WHERE p.status = 'published'
+    AND p.id NOT IN (SELECT post_id FROM user_reads WHERE user_id = :userId)
+  ORDER BY personalization_score DESC
+  LIMIT 20 OFFSET :offset
+Cold start (new user, no read history):
+  Fall back to trending feed for first 10 articles.
+  After 10 reads, personalization kicks in.
+Bookmarks, Dark Mode & PWA
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 20
+ Bookmarks: POST /api/v1/bookmarks/:postId (toggle). GET /api/v1/users/me/bookmarks returns paginated
+saved posts. Bookmarks icon in every ArticleCard.
+ Dark Mode: Tailwind dark: class strategy. Theme stored in localStorage and Zustand. Respects
+prefers-color-scheme on first visit. Toggle persists across sessions.
+ PWA / Offline Reading: Service Worker (Workbox) caches last 20 visited article pages in Cache Storage.
+Offline page shows cached articles. Background sync queues likes/comments when offline and replays when
+reconnected.
+ Accessibility: WCAG 2.1 AA target. Semantic HTML (article, nav, main, aside). All interactive elements
+keyboard-navigable. Focus rings visible. Color contrast ≥4.5:1. Screen reader tested with NVDA/VoiceOver.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 21
+SECTION 05
+Security & Permissions
+5.1 Attack Mitigation
+Attack Vector
+Mitigation
+Implementation
+XSS
+HTML sanitization on all
+user content
+sanitize-html (server), DOMPurify (client-side
+preview)
+SQL Injection
+Parameterized queries
+only
+better-sqlite3 .prepare().run(params) — never string
+concat
+CSRF
+SameSite=Strict cookie +
+custom header check
+Refresh token in httpOnly cookie; CSRF token for
+state-mutations
+Rate limit abuse
+Per-IP and per-user rate
+limits
+express-rate-limit: 100/15min global, 5/min on auth
+routes
+Brute force login
+Account lockout +
+CAPTCHA
+5 failed attempts → 15min lock, hCaptcha on login
+form
+Mass assignment
+Whitelist allowed fields
+Only permit expected body keys in each route
+handler
+Insecure file upload
+Type check + virus scan
++ rename
+Multer: accept only image/* MIME; rename to
+UUID.ext; scan w/ ClamAV (Phase 2)
+Secrets exposure
+Env vars, no .env in git
+.env.example committed; actual .env in .gitignore;
+Doppler/Vault planned
+Clickjacking
+X-Frame-Options: DENY
+helmet() middleware
+MITM
+HTTPS enforced
+TLS 1.2+ only via Nginx/Cloudflare; HSTS header
+set
+5.2 Admin Moderation Dashboard
+ Flagged Comments Queue: list of comments where is_flagged=1, sorted by flag count. Actions: Approve
+(clear flag), Remove (is_removed=1), Ban User.
+ Post moderation: Unpublish, Archive, or Delete any post. All actions logged to audit_logs.
+ User management: Activate/deactivate accounts, change roles, view login history.
+ Audit log viewer: searchable table of all admin actions with actor, target, timestamp, IP.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 22
+SECTION 06
+Performance & Scalability
+6.1 SQLite Scaling Strategy
+SQLite with WAL mode handles approximately 1,000 concurrent read connections and ~100 writes/second on a
+modern VPS — sufficient for Farols' first 50,000 monthly active users. The migration path to PostgreSQL is
+designed to be low-friction:
+Phase 1 (0–50K MAU):   SQLite + WAL + better-sqlite3
+Phase 2 (50K–200K):    PostgreSQL on same VPS (schema is ANSI SQL-compatible)
+  Migration: export SQLite → pg_restore via pgloader (handles type mapping)
+  Zero-downtime: run both DBs in parallel, migrate reads first, then writes
+Phase 3 (200K+):       PostgreSQL + read replicas (PgPool-II or AWS RDS Multi-AZ)
+  Add Redis for session cache, rate-limit counters, trending score cache
+  Move file uploads to S3-compatible object storage (Cloudflare R2)
+6.2 Caching Strategy
+Cache Layer
+What is Cached
+TTL
+Invalidation
+HTTP Cache-Control
+Static assets (JS, CSS,
+images)
+365 days
+(immutable)
+Content-hash in filename
+(Vite)
+HTTP Cache-Control
+Article HTML (SSR)
+5 minutes
+On publish/update
+Service Worker
+Article pages (PWA)
+24 hours
+Background sync on update
+Express memory
+cache
+Trending posts list
+5 minutes
+TTL expiry
+Express memory
+cache
+Category/Tag lists
+30 minutes
+On admin change
+CDN (Cloudflare)
+All static assets, OG images
+Edge TTL 7
+days
+Cache-bust on deploy
+6.3 CDN & Image Delivery
+ Cloudflare Free/Pro tier proxies all traffic. DDoS protection and SSL termination included.
+ All user-uploaded images served from /uploads/ with Cloudflare caching. Original stored on disk; WebP
+variants generated on first request (future: pre-generate).
+ OG images: auto-generated 1200×630 PNG per article via @vercel/og or satori. Cached at CDN edge.
+ Nginx reverse proxy in front of Express: handles gzip compression, static file serving, and connection
+keep-alive.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 23
+SECTION 07
+Monetization Strategy
+Stream
+Implementation
+Revenue Potential (TZ
+context)
+Phase
+Google AdSense
+Script in MainLayout; ad slots in
+sidebar, between article sections,
+footer. Responsive ad units.
+TZS 500–2,000/1,000
+views (low CPM due to
+TZ geo)
+MVP
+Sponsored
+Content
+is_sponsored flag on posts.
+Displayed with 'Sponsored' badge.
+Sold directly to local brands.
+TZS
+50,000–500,000/post
+depending on brand
+Beta
+Affiliate Links
+Custom link wrapper that appends
+tracking params (Jumia Tanzania,
+Kilimall, local SaaS tools).
+5–15% commission on
+conversions
+Beta
+Newsletter Ads
+Sponsored slots in weekly digest
+email (future, using Resend or
+Mailchimp).
+TZS
+30,000–200,000/issue
+Phase 3
+Premium Content
+(Paywall)
+is_premium flag; Stripe/Flutterwave
+paywall; article teaser + subscribe
+prompt.
+Subscription TZS
+5,000–15,000/month
+Phase 3+
+■■ AdSense Note: Tanzania has a relatively low RPM (Revenue Per Mille). To maximize revenue, target content
+that attracts readers from Kenya, Uganda, and diaspora audiences (higher CPM geo). Sponsored posts from local
+Tanzanian businesses are likely the highest near-term revenue opportunity.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 24
+SECTION 08
+UI/UX Design Principles
+8.1 Design System
+ Typography: Inter (sans-serif) for UI; Lora (serif) for article body for improved readability. Base size 16px,
+line-height 1.6 for body text.
+ Color palette: Primary #1A1A2E (navy), Accent #E94560 (red for CTA/breaking), Success #10B981,
+Warning #F59E0B. Light/dark variants for both modes.
+ Spacing system: 4px base unit. All spacing in multiples of 4 (8, 12, 16, 24, 32, 48, 64px). Defined as Tailwind
+config custom values.
+ Breakpoints: Mobile-first: sm 480px, md 768px, lg 1024px, xl 1280px. Design at 375px width first.
+ Article reading width: Max 680px content column for optimal ~65-character line length. Wider for media
+(images, embeds) via negative margins.
+8.2 Mobile-First & Low-Bandwidth
+ All images served as WebP with fallback. Lazy loaded. ArticleCard thumbnails: 400×225px (16:9). Max 50KB
+per thumbnail.
+ Lite Mode toggle: disables all images, embeds, and non-critical JS. Page weight drops to <20KB. Stored in
+localStorage.
+ No custom fonts in Lite Mode. System font stack: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto.
+ Infinite scroll via IntersectionObserver — avoids full page reload pagination. Skeleton screens instead of
+spinners.
+ Animations disabled (prefers-reduced-motion) by default in CSS; opt-in only.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 25
+SECTION 09
+Deployment & DevOps
+9.1 Recommended Hosting Stack
+Component
+Provider
+Spec
+Monthly Cost
+(est.)
+VPS (App + DB)
+Hetzner CX21 or
+DigitalOcean Droplet
+2 vCPU, 4GB RAM,
+40GB SSD, Ubuntu 22.04
+~$12/month
+CDN + DDoS
+Cloudflare Free
+Global edge, SSL, DDoS
+Free
+SMTP (email)
+Brevo (Sendinblue) Free tier
+300 emails/day
+Free (starter)
+Object Storage
+(Phase 2)
+Cloudflare R2
+S3-compatible, no egress
+fee
+$0.015/GB/month
+Domain
+Tanzanian registrar (e.g.,
+TCRA domains)
+.co.tz domain
+~TZS 50,000/year
+9.2 Server Setup
+# Server: Ubuntu 22.04 LTS
+apt install -y nginx nodejs npm certbot python3-certbot-nginx
+npm install -g pm2
+# Nginx config (reverse proxy)
+server {
+  listen 443 ssl; server_name farols.co.tz;
+  ssl_certificate /etc/letsencrypt/live/farols.co.tz/fullchain.pem;
+  location /api/ { proxy_pass http://localhost:4000; }
+  location /ws/  { proxy_pass http://localhost:4000; proxy_http_version 1.1;
+                   proxy_set_header Upgrade $http_upgrade;
+                   proxy_set_header Connection 'upgrade'; }
+  location /     { root /var/www/farols/dist; try_files $uri /index.html; }
+}
+# PM2 process management
+pm2 start server/index.js --name farols-api -i 2  # 2 instances
+pm2 startup && pm2 save
+9.3 CI/CD Pipeline (GitHub Actions)
+# .github/workflows/deploy.yml
+on: push: branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 26
+      - run: npm ci && npm run test  # Vitest unit tests
+      - run: npm run lint            # ESLint
+  deploy:
+    needs: test
+    steps:
+      - run: npm run build           # Vite build
+      - uses: appleboy/ssh-action    # SSH into VPS
+        with:
+          script: |
+            cd /var/www/farols
+            git pull origin main
+            npm ci --production
+            npm run migrate          # run pending SQL migrations
+            pm2 reload farols-api
+            rsync -av dist/ /var/www/farols/dist/
+9.4 Monitoring & Logging
+ Winston logger: levels error/warn/info/debug. Logs to /var/log/farols/combined.log with daily rotation
+(winston-daily-rotate-file).
+ PM2 monitoring: pm2 monit for CPU/RAM. pm2 logs for stdout. Free tier of PM2.io for remote monitoring.
+ Uptime monitoring: UptimeRobot free tier — HTTP check every 5 minutes, SMS/email alert on downtime.
+ Error tracking: Sentry.io free tier. Both Express (Sentry.init in server) and React (ErrorBoundary)
+instrumented.
+ Database backups: nightly SQLite backup via cron: sqlite3 /var/farols/db.sqlite '.backup
+/var/backups/farols/db_$(date +%F).sqlite' — retain 30 days.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 27
+SECTION 10
+Development Roadmap
+PHASE 1 — MVP
+Timeline: Weeks 1–8 | Goal: Core read + write platform. Launch with 10 articles. Validate performance on mobile.
+ ✓ Project setup: Vite + React + Express + SQLite, Tailwind, folder structure
+ ✓ Auth: Register, Login, JWT, Role system (Admin, Editor, Writer, User)
+ ✓ Post CRUD: Create, Read, Update, Delete posts with rich text editor (Tiptap)
+ ✓ Publishing workflow: Draft → Review → Publish
+ ✓ Category & Tag system
+ ✓ Basic feed: paginated list, latest posts
+ ✓ Likes (toggle) and static share buttons (WhatsApp, Twitter, Facebook)
+ ✓ Basic comment system (flat, no nesting yet)
+ ✓ SEO: React Helmet, OG meta, sitemap.xml
+ ✓ Responsive UI: mobile-first, dark mode
+ ✓ Deploy to Hetzner VPS behind Cloudflare
+ ✓ Lighthouse score ≥ 85 mobile
+PHASE 2 — BETA
+Timeline: Weeks 9–16 | Goal: Engagement features, real-time, and writer experience. Onboard 5 writers.
+ ✓ Threaded comments (2-level nesting) with upvote/downvote
+ ✓ WebSocket real-time: new comments, notifications
+ ✓ Breaking news fast-publish mode + WebSocket broadcast
+ ✓ Notification system: in-app bell, push notifications (Web Push API)
+ ✓ Bookmarks / Save for later
+ ✓ Personalized feed (basic: based on category reads)
+ ✓ Trending algorithm
+ ✓ Writer profile pages with post history and stats
+ ✓ Admin moderation dashboard: flagged comments, user management
+ ✓ Scheduled publishing (node-cron)
+ ✓ Post revisions (last 20)
+ ✓ Google AdSense integration
+ ✓ PWA Service Worker (offline shell + last 20 articles)
+ ✓ Full-text search (SQLite FTS5)
+PHASE 3 — PRODUCTION
+Timeline: Weeks 17–24 | Goal: Polish, sponsored content, performance hardening, and first 1,000 registered
+users.
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 28
+ ✓ Sponsored content system (is_sponsored flag, direct booking form)
+ ✓ Affiliate link wrapper and tracking
+ ✓ Advanced personalized feed (tag + author affinity)
+ ✓ Bilingual support (English/Swahili field pairs in CMS)
+ ✓ OG image auto-generation per article
+ ✓ Performance audit: Lighthouse ≥ 90 mobile; Core Web Vitals all green
+ ✓ Accessibility audit: WCAG 2.1 AA compliance
+ ✓ Google OAuth social login
+ ✓ Email newsletter signup (Brevo integration)
+ ✓ Analytics dashboard for writers (views, likes, shares per post)
+ ✓ Abuse detection: rate limiting hardening, Akismet comment spam filter
+ ✓ Sentry error tracking, structured logging
+ ✓ Nightly DB backup automation + offsite copy (Cloudflare R2)
+PHASE 4 — SCALING
+Timeline: Month 7+ | Goal: Handle 50K+ MAU. Explore premium content and writer monetization.
+ ✓ PostgreSQL migration (pgloader from SQLite)
+ ✓ Redis cache: session, trending scores, rate limit counters
+ ✓ CDN-hosted image uploads via Cloudflare R2
+ ✓ Horizontal scaling: PM2 cluster mode → Nginx upstream load balance
+ ✓ Premium content paywall (Flutterwave for TZ payments)
+ ✓ Writer tip-jar (micro-payments via M-Pesa integration)
+ ✓ Native mobile app consideration (React Native sharing the API)
+ ✓ Newsletter monetization: sponsored digest emails
+ ✓ A/B testing infrastructure (Flagsmith or homegrown)
+ ✓ Detailed business analytics (revenue per post, RPM tracking)
+
+FAROLS  ■  Technical & Product Specification
+v1.0  |  Mar 2026
+Confidential — Farols Tech Ltd
+Page 29
+EXECUTIVE SUMMARY
+Dimension
+Decision
+Rationale
+Frontend
+React + Vite + Tailwind
+Fastest build times, huge ecosystem, Tailwind
+JIT for rapid UI
+Backend
+Express.js (Node.js)
+Aligned with frontend JS skills; simple,
+battle-tested
+Database
+SQLite → PostgreSQL
+Zero-ops start; clean migration path when traffic
+demands
+Real-time
+WebSocket (ws library)
+Comments, notifications, breaking news —
+essential for engagement
+Auth
+JWT + httpOnly refresh token
+Stateless scalability; refresh token rotation
+prevents hijacking
+State
+Zustand + React Query
+Minimal boilerplate; React Query handles all
+async server state
+Editor
+Tiptap v2
+Headless, extensible, React-native — avoids
+CKEditor licensing complexity
+PWA
+Workbox service worker
+Offline reading critical for Tanzanian 3G users
+CDN
+Cloudflare (free tier)
+DDoS protection + edge caching at no cost for a
+startup
+Deployment
+Hetzner VPS + PM2 + Nginx
+Best price/performance for East Africa;
+€4.15/month VPS
+Monetization
+AdSense → Sponsored →
+Paywall
+Progressive; sponsored content is highest
+near-term revenue
+Performance target
+Lighthouse ≥ 90 mobile
+Core competitive advantage in the TZ market
+ Farols Technical & Product Specification · Version 1.0 · March 2026 · Confidential

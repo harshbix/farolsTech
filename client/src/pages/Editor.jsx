@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import SEOHead from '../components/SEOHead.jsx';
 import { getErrorMessage } from '../utils/errorFormatter.js';
+import { useAuthStore } from '../store/index.js';
 
 function normalizeAssetUrl(url) {
   if (!url) return url;
@@ -74,9 +75,13 @@ export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const imageInputRef = useRef(null);
   const coverImageInputRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const [meta, setMeta] = useState({
     title: '', excerpt: '', cover_image: '', status: 'draft',
     meta_title: '', meta_desc: '', category_id: null,
@@ -162,6 +167,35 @@ export default function Editor() {
       navigate('/editor');
     },
     onError: (err) => toast.error(getErrorMessage(err, 'Archive failed')),
+  });
+
+  const publishActionMutation = useMutation({
+    mutationFn: async ({ action, payload }) => {
+      if (!id) throw new Error('Save post first before this action');
+      if (action === 'submit-review') return api.post(`/posts/${id}/submit-review`);
+      if (action === 'approve') return api.post(`/posts/${id}/approve`);
+      if (action === 'reject') return api.post(`/posts/${id}/reject`, payload || {});
+      if (action === 'schedule') return api.post(`/posts/${id}/schedule`, payload || {});
+      if (action === 'breaking') return api.patch(`/posts/${id}/breaking`, payload || {});
+      throw new Error('Unknown publishing action');
+    },
+    onSuccess: (_result, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['post-edit', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-posts'] });
+      if (vars.action === 'approve') {
+        toast.success('Post approved and published');
+        navigate('/dashboard');
+      } else if (vars.action === 'reject') {
+        toast.success('Post rejected back to draft');
+      } else if (vars.action === 'submit-review') {
+        toast.success('Post submitted for review');
+      } else if (vars.action === 'schedule') {
+        toast.success('Post scheduled');
+      } else if (vars.action === 'breaking') {
+        toast.success('Breaking status updated');
+      }
+    },
+    onError: (err) => toast.error(getErrorMessage(err, 'Publishing action failed')),
   });
 
   const save = useCallback((status) => {
@@ -274,13 +308,67 @@ export default function Editor() {
               >
                 {saveMutation.isPending ? '⏳ Saving…' : 'Save Draft'}
               </button>
-              <button
-                onClick={() => save('published')}
-                disabled={saveMutation.isPending || !meta.title.trim()}
-                className="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors disabled:opacity-50"
-              >
-                {saveMutation.isPending ? '⏳ Publishing…' : '📤 Publish'}
-              </button>
+              {isAdmin ? (
+                <>
+                  <button
+                    onClick={() => id ? publishActionMutation.mutate({ action: 'approve' }) : save('published')}
+                    disabled={saveMutation.isPending || publishActionMutation.isPending || !meta.title.trim()}
+                    className="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    {saveMutation.isPending || publishActionMutation.isPending ? '⏳ Working…' : 'Approve'}
+                  </button>
+                  <input
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className="input text-xs py-2 w-40"
+                    placeholder="Reject reason"
+                  />
+                  <button
+                    onClick={() => publishActionMutation.mutate({ action: 'reject', payload: { reason: rejectReason } })}
+                    disabled={!id || !rejectReason.trim() || publishActionMutation.isPending}
+                    className="px-4 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => save('published')}
+                    disabled={saveMutation.isPending || !meta.title.trim()}
+                    className="px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-600 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    Publish Now
+                  </button>
+                  <button
+                    onClick={() => publishActionMutation.mutate({ action: 'breaking', payload: { is_breaking: true } })}
+                    disabled={!id || publishActionMutation.isPending}
+                    className="px-4 py-2 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  >
+                    Mark Breaking
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => publishActionMutation.mutate({ action: 'submit-review' })}
+                    disabled={!id || saveMutation.isPending || publishActionMutation.isPending || !meta.title.trim()}
+                    className="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    Submit for Review
+                  </button>
+                  <input
+                    type="datetime-local"
+                    value={scheduleAt}
+                    onChange={(e) => setScheduleAt(e.target.value)}
+                    className="input text-xs py-2"
+                  />
+                  <button
+                    onClick={() => publishActionMutation.mutate({ action: 'schedule', payload: { scheduled_at: scheduleAt } })}
+                    disabled={!id || !scheduleAt || publishActionMutation.isPending}
+                    className="px-4 py-2 rounded-lg border border-surface-border text-[rgb(var(--text-primary))] hover:border-brand-500 transition-colors disabled:opacity-50"
+                  >
+                    Schedule
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

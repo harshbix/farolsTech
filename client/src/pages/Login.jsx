@@ -1,15 +1,38 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import { useAuthStore } from '../store/index.js';
 import SEOHead from '../components/SEOHead.jsx';
+import { getErrorMessage } from '../utils/errorFormatter.js';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setAuth } = useAuthStore();
   const [form, setForm] = useState({ email: '', password: '' });
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const userEncoded = searchParams.get('user');
+    const oauthError = searchParams.get('oauthError');
+
+    if (oauthError) {
+      toast.error(decodeURIComponent(oauthError));
+      return;
+    }
+
+    if (!token || !userEncoded) return;
+    try {
+      const decoded = JSON.parse(atob(userEncoded.replace(/-/g, '+').replace(/_/g, '/')));
+      setAuth(decoded, token);
+      toast.success(`Welcome, ${decoded.username}!`);
+      navigate(decoded?.role === 'admin' ? '/dashboard' : '/');
+    } catch {
+      toast.error('Google sign-in failed, please try again');
+    }
+  }, [navigate, searchParams, setAuth]);
 
   const loginMutation = useMutation({
     mutationFn: () => api.post('/auth/login', form),
@@ -62,6 +85,13 @@ export default function Login() {
             >
               {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
             </button>
+
+            <a
+              href={`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/google`}
+              className="btn-ghost w-full justify-center border border-surface-border"
+            >
+              Continue with Google
+            </a>
           </form>
 
           <p className="text-center text-sm text-gray-400 mt-6">

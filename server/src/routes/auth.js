@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { getDb } from '../db/client.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { requireAuth } from '../middleware/auth.js';
+import OAuthProvider from '../services/oauth.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -15,6 +16,7 @@ const REFRESH_EXP_DAYS = 7;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 15 * 60;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin_farols';
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
 // Helper to return minimal user object (no PII or system fields)
 function minimizeUser(user) {
@@ -52,6 +54,80 @@ function setRefreshCookie(res, refreshToken) {
     maxAge: REFRESH_EXP_DAYS * 24 * 60 * 60 * 1000,
   });
 }
+
+function normalizeUsername(seed) {
+  return String(seed || 'user')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24) || 'user';
+}
+
+function allocateUniqueUsername(db, seed) {
+  const base = normalizeUsername(seed);
+  let candidate = base;
+  let i = 1;
+  while (db.prepare('SELECT id FROM users WHERE username = ?').get(candidate)) {
+    candidate = `${base.slice(0, Math.max(3, 24 - String(i).length - 1))}_${i}`;
+    i += 1;
+  }
+  return candidate;
+}
+
+// GET /api/auth/google
+router.get('/google', (req, res) => {
+  try {
+    const { url } = OAuthProvider.googleAuthUrl();
+    return res.redirect(url);
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Google OAuth not configured' });
+  }
+});
+
+// GET /api/auth/google/callback
+router.get('/google/callback', async (req, res) => {
+  try {
+    const code = String(req.query.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'Missing OAuth code' });
+
+    const profile = await OAuthProvider.exchangeGoogleCode(code);
+    const db = getDb();
+
+    let user = db.prepare('SELECT id, username, email, role, display_name, avatar_url FROM users WHERE email = ?').get(profile.email);
+
+    if (!user) {
+      const username = allocateUniqueUsername(db, profile.name || profile.email.split('@')[0]);
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 12);
+
+      const result = db.prepare(`
+        INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, is_verified)
+        VALUES (?, ?, ?, 'viewer', ?, ?, 1)
+      `).run(username, profile.email, passwordHash, profile.name || username, profile.picture || null);
+
+      user = db.prepare('SELECT id, username, email, role, display_name, avatar_url FROM users WHERE id = ?').get(result.lastInsertRowid);
+    }
+
+    const accessToken = signAccess(user);
+    const refreshToken = signRefresh(user);
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const expires = Math.floor(Date.now() / 1000) + REFRESH_EXP_DAYS * 86400;
+    db.prepare('INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)').run(user.id, tokenHash, expires);
+    setRefreshCookie(res, refreshToken);
+
+    const encodedUser = Buffer.from(JSON.stringify(minimizeUser(user))).toString('base64url');
+    const redirectUrl = new URL('/login', CLIENT_ORIGIN);
+    redirectUrl.searchParams.set('oauth', 'google');
+    redirectUrl.searchParams.set('token', accessToken);
+    redirectUrl.searchParams.set('user', encodedUser);
+    return res.redirect(redirectUrl.toString());
+  } catch (err) {
+    const redirectUrl = new URL('/login', CLIENT_ORIGIN);
+    redirectUrl.searchParams.set('oauthError', err.message || 'OAuth failed');
+    return res.redirect(redirectUrl.toString());
+  }
+});
 
 // POST /api/auth/register
 router.post('/register', authLimiter, async (req, res, next) => {

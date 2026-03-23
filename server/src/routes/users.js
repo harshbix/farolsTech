@@ -61,4 +61,21 @@ router.put('/:id', requireAuth, (req, res, next) => {
   }
 });
 
+// POST /api/users/me/read/:postId
+router.post('/me/read/:postId', requireAuth, (req, res, next) => {
+  try {
+    const postId = Number.parseInt(req.params.postId, 10);
+    if (!Number.isFinite(postId)) return res.status(400).json({ error: 'Invalid post id' });
+
+    const db = getDb();
+    const post = db.prepare("SELECT id FROM posts WHERE id = ? AND status = 'published'").get(postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    db.prepare('INSERT OR IGNORE INTO user_reads (user_id, post_id) VALUES (?, ?)').run(req.user.id, postId);
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

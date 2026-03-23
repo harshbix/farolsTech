@@ -54,6 +54,7 @@ export default function Navbar() {
           {[
             { to: '/',          label: t('home') },
             { to: '/search',    label: t('search') },
+            { to: '/feed',      label: 'For You' },
             { to: '/bookmarks', label: t('bookmarks') },
           ].map(({ to, label }) => (
             <NavLink
@@ -104,10 +105,18 @@ export default function Navbar() {
           {isAuthenticated ? (
             <>
               {isAdmin && (
-                <Link to="/dashboard" className="btn-ghost text-sm py-1.5">
-                  {t('dashboard')}
-                </Link>
+                <>
+                  <Link to="/dashboard" className="btn-ghost text-sm py-1.5">
+                    {t('dashboard')}
+                  </Link>
+                  <Link to="/admin/moderation" className="btn-ghost text-sm py-1.5">
+                    Moderation
+                  </Link>
+                </>
               )}
+              <Link to="/analytics" className="btn-ghost text-sm py-1.5">
+                Analytics
+              </Link>
               <button
                 onClick={() => logoutMutation.mutate()}
                 className="btn-ghost text-sm py-1.5 text-red-400"

@@ -80,12 +80,12 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <a
-                  href="#newsletter"
+                <Link
+                  to="/feed"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
-                  Newsletter
-                </a>
+                  For You Feed
+                </Link>
               </li>
             </ul>
           </div>
@@ -97,36 +97,44 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="#about"
+                <Link
+                  to="/about"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   About
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#careers"
+                <Link
+                  to="/careers"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Careers
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#press"
+                <Link
+                  to="/press"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Press
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#blog"
+                <Link
+                  to="/blog"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Blog
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/news"
+                  className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
+                >
+                  Newsroom
+                </Link>
               </li>
             </ul>
           </div>
@@ -138,36 +146,44 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="#privacy"
+                <Link
+                  to="/privacy"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#terms"
+                <Link
+                  to="/terms"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Terms of Service
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#cookies"
+                <Link
+                  to="/cookies"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Cookie Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#contact"
+                <Link
+                  to="/contact"
                   className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
                 >
                   Contact
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/docs/api"
+                  className="text-sm text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors"
+                >
+                  API Docs
+                </Link>
               </li>
             </ul>
           </div>
@@ -178,16 +194,30 @@ export default function Footer() {
 
         {/* Bottom Section */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
-          <p className="text-xs text-[rgb(var(--text-secondary))]">
-            © {currentYear} Farols. All rights reserved. | Crafted for East Africa 🌍
-          </p>
+          <div className="space-y-1 text-center sm:text-left">
+            <p className="text-xs text-[rgb(var(--text-secondary))]">
+              © {currentYear} Farols. All rights reserved.
+            </p>
+            <p className="text-xs text-[rgb(var(--text-secondary))]">
+              Built with care by{' '}
+              <a
+                href="https://github.com/JuniorJeconia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-300 hover:text-brand-200"
+              >
+                Junior Jeconia
+              </a>
+              {' '}for East Africa.
+            </p>
+          </div>
           <div className="flex gap-4">
-            <button className="text-xs px-4 py-2 rounded-lg bg-surface-raised hover:bg-surface-border text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors">
-              {t('language') || 'Language'}
-            </button>
-            <button className="text-xs px-4 py-2 rounded-lg bg-surface-raised hover:bg-surface-border text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors">
-              🌙
-            </button>
+            <Link to="/about#credits" className="text-xs px-4 py-2 rounded-lg bg-surface-raised hover:bg-surface-border text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors">
+              Credits
+            </Link>
+            <Link to="/contact" className="text-xs px-4 py-2 rounded-lg bg-surface-raised hover:bg-surface-border text-[rgb(var(--text-secondary))] hover:text-[rgb(var(--text-primary))] transition-colors">
+              Support
+            </Link>
           </div>
         </div>
       </div>

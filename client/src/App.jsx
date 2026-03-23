@@ -26,6 +26,19 @@ const Register      = lazy(() => import('./pages/Register.jsx'));
 const Dashboard     = lazy(() => import('./pages/Dashboard.jsx'));
 const Editor        = lazy(() => import('./pages/Editor.jsx'));
 const Bookmarks     = lazy(() => import('./pages/Bookmarks.jsx'));
+const Feed          = lazy(() => import('./pages/Feed.jsx'));
+const Moderation    = lazy(() => import('./pages/Moderation.jsx'));
+const Analytics     = lazy(() => import('./pages/Analytics.jsx'));
+const About         = lazy(() => import('./pages/About.jsx'));
+const Contact       = lazy(() => import('./pages/Contact.jsx'));
+const ApiDocs       = lazy(() => import('./pages/ApiDocs.jsx'));
+const Privacy       = lazy(() => import('./pages/Privacy.jsx'));
+const Terms         = lazy(() => import('./pages/Terms.jsx'));
+const Cookies       = lazy(() => import('./pages/Cookies.jsx'));
+const News          = lazy(() => import('./pages/News.jsx'));
+const Blog          = lazy(() => import('./pages/Blog.jsx'));
+const Careers       = lazy(() => import('./pages/Careers.jsx'));
+const Press         = lazy(() => import('./pages/Press.jsx'));
 const NotFound      = lazy(() => import('./pages/NotFound.jsx'));
 
 const queryClient = new QueryClient({
@@ -117,9 +130,23 @@ export default function App() {
                     <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
 
                     <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+                    <Route path="/admin/moderation" element={<AdminRoute><Moderation /></AdminRoute>} />
+                    <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
                     <Route path="/editor"    element={<AdminRoute><Editor /></AdminRoute>} />
                     <Route path="/editor/:id" element={<AdminRoute><Editor /></AdminRoute>} />
                     <Route path="/bookmarks" element={<PrivateRoute><Bookmarks /></PrivateRoute>} />
+                    <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
+
+                    <Route path="/about" element={<About />} />
+                    <Route path="/contact" element={<Contact />} />
+                    <Route path="/docs/api" element={<ApiDocs />} />
+                    <Route path="/privacy" element={<Privacy />} />
+                    <Route path="/terms" element={<Terms />} />
+                    <Route path="/cookies" element={<Cookies />} />
+                    <Route path="/news" element={<News />} />
+                    <Route path="/blog" element={<Blog />} />
+                    <Route path="/careers" element={<Careers />} />
+                    <Route path="/press" element={<Press />} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>

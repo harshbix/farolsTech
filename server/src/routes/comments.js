@@ -129,4 +129,50 @@ router.delete('/:id', requireAuth, (req, res, next) => {
   }
 });
 
+// POST /api/comments/:id/vote
+router.post('/:id/vote', requireAuth, (req, res, next) => {
+  try {
+    const vote = Number.parseInt(req.body?.vote, 10);
+    if (![1, -1].includes(vote)) {
+      return res.status(400).json({ error: 'vote must be 1 or -1' });
+    }
+
+    const db = getDb();
+    const comment = db.prepare('SELECT id FROM comments WHERE id = ?').get(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    db.prepare(`
+      INSERT INTO comment_votes (comment_id, user_id, vote)
+      VALUES (?, ?, ?)
+      ON CONFLICT(comment_id, user_id) DO UPDATE SET vote = excluded.vote, created_at = CURRENT_TIMESTAMP
+    `).run(comment.id, req.user.id, vote);
+
+    const score = db.prepare('SELECT COALESCE(SUM(vote), 0) AS score FROM comment_votes WHERE comment_id = ?').get(comment.id).score;
+    db.prepare('UPDATE comments SET score = ?, updated_at = unixepoch() WHERE id = ?').run(score, comment.id);
+
+    return res.json({ score });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/comments/:id/flag
+router.post('/:id/flag', requireAuth, (req, res, next) => {
+  try {
+    const reason = String(req.body?.reason || '').trim();
+    if (!reason) return res.status(400).json({ error: 'Flag reason is required' });
+
+    const db = getDb();
+    const comment = db.prepare('SELECT id FROM comments WHERE id = ?').get(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+    db.prepare('UPDATE comments SET is_flagged = 1, flag_reason = ?, updated_at = unixepoch() WHERE id = ?')
+      .run(reason.slice(0, 500), comment.id);
+
+    return res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

@@ -9,11 +9,13 @@ const rooms = new Map();
 
 // Map: userId -> Set<WebSocket>
 const userSockets = new Map();
+const allSockets = new Set();
 
 export function setupWebSocket(server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws, req) => {
+    allSockets.add(ws);
     const url = new URL(req.url, 'http://localhost');
     const token = url.searchParams.get('token');
     const postSlug = url.searchParams.get('post');
@@ -35,6 +37,7 @@ export function setupWebSocket(server) {
     }
 
     ws.on('close', () => {
+      allSockets.delete(ws);
       if (ws.postSlug && rooms.has(ws.postSlug)) {
         rooms.get(ws.postSlug).delete(ws);
       }
@@ -66,6 +69,13 @@ export function pushNotification(userId, notification) {
   if (!sockets) return;
   const msg = JSON.stringify({ type: 'notification', payload: notification });
   for (const client of sockets) {
+    if (client.readyState === 1) client.send(msg);
+  }
+}
+
+export function broadcastBreakingNews(payload) {
+  const msg = JSON.stringify({ type: 'breaking_news', payload });
+  for (const client of allSockets) {
     if (client.readyState === 1) client.send(msg);
   }
 }

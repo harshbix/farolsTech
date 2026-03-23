@@ -35,6 +35,8 @@ const {
   JWT_SECRET,
 } = process.env;
 
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || GOOGLE_CALLBACK_URL;
+
 export class OAuthProvider {
   /**
    * Generate Google OAuth redirect URL for client-side login
@@ -48,7 +50,7 @@ export class OAuthProvider {
     const scope = encodeURIComponent('openid profile email');
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: GOOGLE_CALLBACK_URL,
+      redirect_uri: GOOGLE_REDIRECT_URI,
       response_type: 'code',
       scope,
       state,
@@ -73,7 +75,7 @@ export class OAuthProvider {
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: GOOGLE_CALLBACK_URL,
+        redirect_uri: GOOGLE_REDIRECT_URI,
         grant_type: 'authorization_code',
       });
 
@@ -95,6 +97,44 @@ export class OAuthProvider {
     } catch (error) {
       throw new Error(`Google OAuth verification failed: ${error.message}`);
     }
+  }
+
+  static async exchangeGoogleCode(code) {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      throw new Error('Google OAuth credentials not configured');
+    }
+
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: GOOGLE_REDIRECT_URI,
+      grant_type: 'authorization_code',
+    });
+
+    const accessToken = tokenResponse.data?.access_token;
+    if (!accessToken) {
+      throw new Error('Google did not return an access token');
+    }
+
+    const profileResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const profile = profileResponse.data || {};
+    if (!profile.email) {
+      throw new Error('Google account does not provide email');
+    }
+
+    return {
+      provider: 'google',
+      id: profile.id,
+      email: profile.email,
+      name: profile.name || profile.email.split('@')[0],
+      picture: profile.picture || null,
+    };
   }
 
   /**

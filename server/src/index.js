@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import { mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import rateLimit from 'express-rate-limit';
 
 // Load .env from root directory
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,7 +23,9 @@ import { setupWebSocket } from './services/websocket.js';
 import { startTrendingJob } from './services/trending.js';
 import { getDb } from './db/client.js';
 import migrate from './db/migrations/001_create_external_articles.js';
+import migrateWorkflowAndEngagement from './db/migrations/002_workflow_and_engagement.js';
 import { startNewsJob } from './cron/newsJob.js';
+import { startScheduledPublisher } from './cron/scheduledPublisher.js';
 
 // Routes
 import authRoutes        from './routes/auth.js';
@@ -37,6 +40,18 @@ import notificationsRoutes from './routes/notifications.js';
 import bookmarksRoutes   from './routes/bookmarks.js';
 import uploadsRoutes     from './routes/uploads.js';
 import externalNewsRoutes from './routes/externalNews.js';
+import publishingRoutes   from './routes/publishing.js';
+import moderationRoutes   from './routes/moderation.js';
+import feedRoutes         from './routes/feed.js';
+import analyticsRoutes    from './routes/analytics.js';
+
+let helmetMiddleware = (_req, _res, next) => next();
+try {
+  const helmetModule = await import('helmet');
+  helmetMiddleware = helmetModule.default();
+} catch (err) {
+  logger.warn(`[startup] helmet is not installed; continuing without helmet middleware (${err.message})`);
+}
 
 if (!process.env.NEWS_API_KEY) {
   console.error('[FATAL] NEWS_API_KEY is not set. News fetch will not work.');
@@ -55,6 +70,7 @@ const db = getDb();
 try {
   runMigrations();
   migrate(db); // Run external articles migration
+  migrateWorkflowAndEngagement(db);
 } catch (err) {
   logger.error('[startup] Database migration failed:', err);
 }
@@ -92,11 +108,22 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 app.set('db', db);
 
+const authRouteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many auth attempts, please try again later.' },
+});
+
 // ── Global Middleware ──────────────────────────────────────────
+app.use(helmetMiddleware);
 app.use(cors({
   origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
+app.use('/api/auth', authRouteLimiter);
+app.use('/api/v1/auth', authRouteLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(globalLimiter);
@@ -104,7 +131,11 @@ app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 
 // Request logging
 app.use((req, _res, next) => {
-  logger.debug(`${req.method} ${req.path}`);
+  const startedAt = Date.now();
+  _res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    logger.info(`${req.method} ${req.path} ${_res.statusCode} ${durationMs}ms`);
+  });
   next();
 });
 
@@ -112,6 +143,7 @@ function mountApiRoutes(prefix) {
   app.use(`${prefix}/auth`, authRoutes);
   app.use(`${prefix}/posts`, postsRoutes);
   app.use(`${prefix}/posts/:postId/comments`, commentsRoutes);
+  app.use(`${prefix}/comments`, commentsRoutes);
   app.use(`${prefix}/posts/:postId/like`, likesRoutes);
   app.use(`${prefix}/posts/:postId/share`, sharesRoutes);
   app.use(`${prefix}/search`, searchRoutes);
@@ -121,6 +153,10 @@ function mountApiRoutes(prefix) {
   app.use(`${prefix}/bookmarks`, bookmarksRoutes);
   app.use(`${prefix}/uploads`, uploadsRoutes);
   app.use(`${prefix}/external-news`, externalNewsRoutes);
+  app.use(`${prefix}`, publishingRoutes);
+  app.use(`${prefix}`, moderationRoutes);
+  app.use(`${prefix}`, feedRoutes);
+  app.use(`${prefix}`, analyticsRoutes);
 
   app.get(`${prefix}/health`, (_req, res) => {
     res.json({ status: 'ok', env: process.env.NODE_ENV, time: new Date().toISOString() });
@@ -140,12 +176,14 @@ const server = createServer(app);
 let wsServer = null;
 let trendingJob = null;
 let newsJob = null;
+let scheduledPublisherJob = null;
 let isShuttingDown = false;
 
 // Initialize servers
 wsServer = setupWebSocket(server);
 trendingJob = startTrendingJob();
 newsJob = startNewsJob(db);
+scheduledPublisherJob = startScheduledPublisher(db);
 
 // ── Server Error Handler ───────────────────────────────────────
 server.on('error', (err) => {
@@ -200,6 +238,15 @@ function gracefulShutdown(signal) {
       logger.info('News fetcher job stopped');
     } catch (err) {
       logger.warn('Error stopping news job:', err.message);
+    }
+  }
+
+  if (scheduledPublisherJob) {
+    try {
+      scheduledPublisherJob.stop();
+      logger.info('Scheduled publisher job stopped');
+    } catch (err) {
+      logger.warn('Error stopping scheduled publisher job:', err.message);
     }
   }
   
