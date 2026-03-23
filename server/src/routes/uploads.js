@@ -14,10 +14,14 @@ const uploadsRoot = join(__dirname, '..', '..', 'uploads');
 
 const MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const SIZE_SET = [400, 800, 1200];
+const MAX_IMAGE_WIDTH = 5000;
+const MAX_IMAGE_HEIGHT = 5000;
+const MIN_IMAGE_WIDTH = 80;
+const MIN_IMAGE_HEIGHT = 80;
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!MIME_TYPES.has(file.mimetype)) {
       cb(new Error('Unsupported file type. Only JPEG, PNG and WebP are allowed.'));
@@ -29,6 +33,33 @@ const upload = multer({
 
 function ensureDir(path) {
   mkdirSync(path, { recursive: true });
+}
+
+async function validateImageDimensions(buffer) {
+  try {
+    const metadata = await sharp(buffer).metadata();
+    
+    if (!metadata.width || !metadata.height) {
+      throw new Error('Unable to read image dimensions');
+    }
+    
+    if (metadata.width > MAX_IMAGE_WIDTH || metadata.height > MAX_IMAGE_HEIGHT) {
+      throw new Error(
+        `Image dimensions ${metadata.width}x${metadata.height} exceed maximum of ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT}`
+      );
+    }
+    
+    if (metadata.width < MIN_IMAGE_WIDTH || metadata.height < MIN_IMAGE_HEIGHT) {
+      throw new Error(
+        `Image dimensions ${metadata.width}x${metadata.height} must be at least ${MIN_IMAGE_WIDTH}x${MIN_IMAGE_HEIGHT}`
+      );
+    }
+    
+    return metadata;
+  } catch (err) {
+    const message = err.message.includes('Image dimensions') ? err.message : `Invalid image: ${err.message}`;
+    throw new Error(message);
+  }
 }
 
 async function generateResponsiveWebp(buffer, outputDir, prefix) {
@@ -55,6 +86,9 @@ router.post('/posts/image', requireAuth, requireRole('admin'), upload.single('im
   try {
     if (!req.file) return res.status(400).json({ error: 'Image file is required' });
 
+    // Validate image dimensions before processing
+    await validateImageDimensions(req.file.buffer);
+
     const id = crypto.randomUUID();
     const outputDir = join(uploadsRoot, 'posts');
     const generated = await generateResponsiveWebp(req.file.buffer, outputDir, id);
@@ -79,6 +113,9 @@ router.post('/posts/image', requireAuth, requireRole('admin'), upload.single('im
 router.post('/users/avatar', requireAuth, upload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Image file is required' });
+
+    // Validate image dimensions before processing
+    await validateImageDimensions(req.file.buffer);
 
     const id = crypto.randomUUID();
     const outputDir = join(uploadsRoot, 'avatars');

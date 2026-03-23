@@ -18,7 +18,7 @@ export default function Register() {
       toast.success('Account created! Welcome to Farols 🎉');
       navigate(data.user?.role === 'admin' ? '/dashboard' : '/');
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Registration failed'),
+    onError: (err) => toast.error(getErrorMessage(err, 'Registration failed')),
   });
 
   return (

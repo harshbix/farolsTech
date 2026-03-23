@@ -5,7 +5,7 @@ import logger from '../utils/logger.js';
 
 export function startTrendingJob() {
   // Run every 15 minutes
-  cron.schedule('*/15 * * * *', () => {
+  const task = cron.schedule('*/15 * * * *', () => {
     try {
       const db = getDb();
       const posts = db.prepare(`
@@ -39,4 +39,5 @@ export function startTrendingJob() {
   });
 
   logger.info('Trending score cron job started (every 15 min)');
+  return task;  // Return the task so it can be stopped later
 }

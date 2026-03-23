@@ -7,20 +7,25 @@ import { z } from 'zod';
 
 const router = Router();
 
-const nullableUrlField = z.union([z.string().url(), z.literal(''), z.null(), z.undefined()])
-  .transform((value) => (value ? value : null));
+const nullableAssetUrlField = z.union([
+  z.string().url(),
+  z.string().regex(/^\/uploads\/.+/),
+  z.literal(''),
+  z.null(),
+  z.undefined(),
+]).transform((value) => (value ? value : null));
 
 const postSchema = z.object({
   title: z.string().min(3).max(200),
   content_json: z.string(),
   category_id: z.number().int().optional().nullable(),
   excerpt: z.string().max(500).optional(),
-  cover_image: nullableUrlField,
+  cover_image: nullableAssetUrlField,
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
   featured: z.boolean().default(false),
   meta_title: z.string().max(70).optional(),
   meta_desc: z.string().max(160).optional(),
-  og_image: nullableUrlField,
+  og_image: nullableAssetUrlField,
   tags: z.array(z.string()).optional(),
   // Bilingual
   title_sw: z.string().optional(),
@@ -29,23 +34,34 @@ const postSchema = z.object({
 
 // GET /api/posts
 router.get('/', optionalAuth, (req, res) => {
-  const { page, limit, category, tag, author, status, featured } = req.query;
+  const { page, limit, category, tag, author, author_id, status, featured } = req.query;
   const { limit: lim, offset } = paginate(page, limit);
   const db = getDb();
 
   let where = [];
   let params = [];
 
-  const canSeeDrafts = req.user && req.user.role === 'admin';
-  if (!canSeeDrafts) {
+  // Status filtering: admins can filter, non-admins always see published
+  const isAdmin = req.user && req.user.role === 'admin';
+  const statusFilter = status || 'published'; // Default to published
+  if (!isAdmin) {
     where.push("p.status = 'published'");
-  } else if (status) {
+  } else {
     where.push('p.status = ?');
-    params.push(status);
+    params.push(statusFilter);
+  }
+
+  // Author filtering: prefer author_id (stable) over username
+  if (author_id) {
+    where.push('p.author_id = ?');
+    params.push(author_id);
+  } else if (author) {
+    where.push('u.username = ?');
+    params.push(author);
   }
 
   if (category) { where.push('c.slug = ?'); params.push(category); }
-  if (author)   { where.push('u.username = ?'); params.push(author); }
+  if (tag) { where.push('t.slug = ?'); params.push(tag); }
   if (featured) { where.push('p.featured = 1'); }
 
   const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
@@ -92,6 +108,37 @@ router.get('/trending', (req, res) => {
     LIMIT 10
   `).all();
   res.json({ posts });
+});
+
+// GET /api/posts/id/:id (admin editor fetch by numeric id)
+router.get('/id/:id', requireAuth, requireRole('admin'), (req, res) => {
+  const db = getDb();
+  const postId = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(postId)) {
+    return res.status(400).json({ error: 'Invalid post id' });
+  }
+
+  const post = db.prepare(`
+    SELECT p.*,
+           u.username AS author_username, u.display_name AS author_name,
+           c.name AS category_name, c.slug AS category_slug
+    FROM posts p
+    LEFT JOIN users u ON u.id = p.author_id
+    LEFT JOIN categories c ON c.id = p.category_id
+    WHERE p.id = ?
+  `).get(postId);
+
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+
+  post.tags = db.prepare(`
+    SELECT t.id, t.name, t.slug FROM tags t
+    JOIN post_tags pt ON pt.tag_id = t.id
+    WHERE pt.post_id = ?
+  `).all(post.id);
+
+  return res.json({ post });
 });
 
 // GET /api/posts/:slug

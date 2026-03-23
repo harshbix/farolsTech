@@ -16,6 +16,17 @@ const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 15 * 60;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin_farols';
 
+// Helper to return minimal user object (no PII or system fields)
+function minimizeUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    display_name: user.display_name || null,
+    avatar_url: user.avatar_url || null,
+    role: user.role,
+  };
+}
+
 function signAccess(user) {
   return jwt.sign(
     { id: user.id, username: user.username, role: user.role },
@@ -25,7 +36,11 @@ function signAccess(user) {
 }
 
 function signRefresh(user) {
-  const token = jwt.sign({ id: user.id }, REFRESH_SECRET, { expiresIn: `${REFRESH_EXP_DAYS}d` });
+  const token = jwt.sign(
+    { id: user.id, jti: crypto.randomUUID() },
+    REFRESH_SECRET,
+    { expiresIn: `${REFRESH_EXP_DAYS}d` }
+  );
   return token;
 }
 
@@ -71,7 +86,7 @@ router.post('/register', authLimiter, async (req, res, next) => {
 
     setRefreshCookie(res, refreshToken);
 
-    res.status(201).json({ user, accessToken });
+    res.status(201).json({ user: minimizeUser(user), accessToken });
   } catch (err) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     next(err);
@@ -114,7 +129,7 @@ router.post('/oauth', authLimiter, async (req, res, next) => {
 
     setRefreshCookie(res, refreshToken);
 
-    res.status(200).json({ user, accessToken, provider });
+    res.status(200).json({ user: minimizeUser(user), accessToken, provider });
   } catch (err) {
     next(err);
   }
@@ -163,8 +178,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
     setRefreshCookie(res, refreshToken);
 
-    const { password_hash, ...safeUser } = user;
-    res.json({ user: safeUser, accessToken });
+    res.json({ user: minimizeUser(user), accessToken });
   } catch (err) {
     if (err.name === 'ZodError') return res.status(400).json({ error: err.errors });
     next(err);
@@ -199,15 +213,28 @@ router.post('/refresh', (req, res, next) => {
     const expires = Math.floor(Date.now() / 1000) + REFRESH_EXP_DAYS * 86400;
 
     const tx = db.transaction(() => {
-      db.prepare('UPDATE refresh_tokens SET revoked = 1 WHERE token_hash = ?').run(tokenHash);
+      // Single-use guarantee: only one concurrent refresh can revoke this token.
+      const revokeResult = db
+        .prepare('UPDATE refresh_tokens SET revoked = 1 WHERE token_hash = ? AND revoked = 0')
+        .run(tokenHash);
+
+      if (revokeResult.changes !== 1) {
+        return false;
+      }
+
       db.prepare('INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)').run(user.id, nextTokenHash, expires);
+      return true;
     });
-    tx();
+    const rotated = tx();
+
+    if (!rotated) {
+      return res.status(401).json({ error: 'Refresh token already used' });
+    }
 
     setRefreshCookie(res, nextRefreshToken);
 
     const accessToken = signAccess(user);
-    res.json({ accessToken, user });
+    res.json({ accessToken, user: minimizeUser(user) });
   } catch (err) {
     next(err);
   }

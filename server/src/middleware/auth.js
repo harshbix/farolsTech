@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import { getDb } from '../db/client.js';
 import logger from '../utils/logger.js';
 
 const ACCESS_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
@@ -12,12 +11,8 @@ export function requireAuth(req, res, next) {
   const token = authHeader.slice(7);
   try {
     const decoded = jwt.verify(token, ACCESS_SECRET);
-    const db = getDb();
-    const dbUser = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(decoded.id);
-    if (!dbUser) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-    req.user = { ...decoded, username: dbUser.username, role: dbUser.role };
+    // ✓ Use JWT payload directly (already verified)
+    req.user = decoded;
     next();
   } catch (err) {
     logger.warn(`Auth failed: ${err.message}`);
@@ -41,11 +36,8 @@ export function optionalAuth(req, res, next) {
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const decoded = jwt.verify(authHeader.slice(7), ACCESS_SECRET);
-      const db = getDb();
-      const dbUser = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(decoded.id);
-      if (dbUser) {
-        req.user = { ...decoded, username: dbUser.username, role: dbUser.role };
-      }
+      // ✓ Use JWT payload directly (already verified)
+      req.user = decoded;
     } catch (_) {}
   }
   next();

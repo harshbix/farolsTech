@@ -7,6 +7,9 @@ import api from '../api/client.js';
 import { useAuthStore, useUIStore } from '../store/index.js';
 import SEOHead from '../components/SEOHead.jsx';
 import PageLoader from '../components/PageLoader.jsx';
+import PageWrapper from '../components/PageWrapper.jsx';
+import ScrollProgressBar from '../components/ScrollProgressBar.jsx';
+import { calculateReadingTime, formatReadingTime } from '../utils/readingTime.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -104,38 +107,42 @@ function CommentItem({ comment, postId }) {
   });
 
   return (
-    <div className="border-l-2 border-surface-border pl-4">
-      <div className="flex items-center gap-2 mb-1">
-        <div className="w-7 h-7 rounded-full bg-brand-800 flex items-center justify-center text-xs font-bold uppercase">
+    <div className="border-l-2 border-surface-border pl-6 py-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-600 to-brand-800 flex items-center justify-center text-xs font-bold uppercase text-white">
           {comment.username[0]}
         </div>
-        <span className="font-medium text-sm">{comment.display_name || comment.username}</span>
-        <span className="text-xs text-gray-500">{new Date(comment.created_at * 1000).toLocaleDateString()}</span>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[rgb(var(--text-primary))]">{comment.display_name || comment.username}</span>
+            <span className="text-xs text-[rgb(var(--text-secondary))]">{new Date(comment.created_at * 1000).toLocaleDateString()}</span>
+          </div>
+        </div>
       </div>
-      <p className="text-gray-300 text-sm mb-2">{comment.body}</p>
+      <p className="text-[rgb(var(--text-primary))] leading-relaxed mb-3">{comment.body}</p>
       {isAuthenticated && !comment.parent_id && (
-        <button onClick={() => setReplying(!replying)} className="text-xs text-brand-400 hover:text-brand-300">
+        <button onClick={() => setReplying(!replying)} className="text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors">
           Reply
         </button>
       )}
       {replying && (
-        <div className="mt-2 flex gap-2">
+        <div className="mt-4 flex gap-2">
           <input value={reply} onChange={e => setReply(e.target.value)}
-            className="input text-sm py-1 flex-1" placeholder="Write a reply…" />
-          <button onClick={() => replyMutation.mutate()} className="btn-primary py-1 text-sm">
+            className="input text-sm py-2 flex-1" placeholder="Write a reply…" />
+          <button onClick={() => replyMutation.mutate()} className="btn-primary py-2 text-sm">
             Send
           </button>
         </div>
       )}
       {comment.replies?.map(r => (
-        <div key={r.id} className="mt-3 ml-4 border-l border-surface-border pl-3">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-6 h-6 rounded-full bg-brand-900 flex items-center justify-center text-xs font-bold uppercase">
+        <div key={r.id} className="mt-4 ml-6 border-l border-surface-border pl-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-full bg-surface-raised flex items-center justify-center text-xs font-bold uppercase text-brand-400">
               {r.username[0]}
             </div>
-            <span className="font-medium text-xs">{r.display_name || r.username}</span>
+            <span className="font-semibold text-xs text-[rgb(var(--text-primary))]">{r.display_name || r.username}</span>
           </div>
-          <p className="text-gray-400 text-sm">{r.body}</p>
+          <p className="text-[rgb(var(--text-secondary))] text-sm leading-relaxed">{r.body}</p>
         </div>
       ))}
     </div>
@@ -174,9 +181,10 @@ export default function PostDetail() {
   });
 
   if (isLoading) return <PageLoader />;
-  if (!data) return <div className="text-center py-20 text-gray-400">Post not found</div>;
+  if (!data) return <div className="text-center py-20 text-[rgb(var(--text-secondary))]">Post not found</div>;
 
   const articleHtml = renderArticleContent(data.content_json);
+  const readingTime = calculateReadingTime(data.content_json);
 
   return (
     <>
@@ -189,94 +197,152 @@ export default function PostDetail() {
         publishedAt={data.published_at}
         slug={data.slug}
       />
-      <main className="max-w-4xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-10">
+      <ScrollProgressBar />
+      <PageWrapper>
+        <main className="min-h-screen bg-[rgb(var(--surface-bg))]">
+        {/* Article Header */}
+        <article className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          {/* Category Badge */}
           {data.category_name && (
             <Link to={`/category/${data.category_slug}`}>
-              <div className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#737373] mb-4">
+              <div className="inline-block text-xs md:text-sm font-bold uppercase tracking-widest text-brand-400 mb-6 pb-2 border-b border-brand-400/30 hover:border-brand-400 transition-colors">
                 {data.category_name}
               </div>
             </Link>
           )}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-semibold mb-6 text-[rgb(var(--text-primary))] leading-tight">
+
+          {/* Headline */}
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-[rgb(var(--text-primary))] leading-tight mb-8">
             {data.title}
           </h1>
-          <div className="flex items-center justify-center gap-3 text-sm md:text-base font-medium text-[rgb(var(--text-secondary))] mb-8">
-            <Link to={`/author/${data.author_username}`} className="hover:text-[rgb(var(--text-primary))] transition-colors">
+
+          {/* Metadata */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 text-sm md:text-base text-[rgb(var(--text-secondary))] mb-8 pb-8 border-b border-surface-border">
+            <Link 
+              to={`/author/${data.author_username}`} 
+              className="font-semibold text-[rgb(var(--text-primary))] hover:text-brand-400 transition-colors"
+            >
               {data.author_name || data.author_username}
             </Link>
+            
             {data.published_at && (
               <>
-                <span>·</span>
-                <span>{new Date(data.published_at * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                <span className="hidden sm:inline">·</span>
+                <time dateTime={new Date(data.published_at * 1000).toISOString()}>
+                  {new Date(data.published_at * 1000).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </time>
               </>
             )}
+            
+            <span className="hidden sm:inline">·</span>
+            <span className="font-medium text-brand-400">{formatReadingTime(readingTime)}</span>
           </div>
-        </div>
+        </article>
+
+        {/* Cover Image */}
         {data.cover_image && (
-          <img src={data.cover_image} alt={data.title} className="w-full rounded-2xl mb-12 object-cover max-h-[600px]" />
+          <div className="w-full max-w-content mx-auto px-4 sm:px-6 lg:px-8 mb-12 md:mb-16">
+            <img 
+              src={data.cover_image} 
+              alt={data.title} 
+              className="w-full rounded-2xl object-cover max-h-[600px] shadow-lg transition-transform duration-500 hover:shadow-xl" 
+            />
+          </div>
         )}
 
-        {/* Article content (Tiptap JSON rendered as HTML) */}
-        <div
-          className="article-content max-w-3xl mx-auto"
-          dangerouslySetInnerHTML={{ __html: articleHtml }}
-        />
+        {/* Article Content */}
+        <article className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 pb-12 md:pb-20">
+          <div
+            className="article-content"
+            dangerouslySetInnerHTML={{ __html: articleHtml }}
+          />
+        </article>
 
-        {/* Actions bar */}
-        <div className="max-w-3xl mx-auto flex items-center gap-4 mt-12 pt-6 border-t border-surface-border">
-          <button
-            id="like-post-btn"
-            onClick={(e) => {
-              e.preventDefault();
-              isAuthenticated ? likeMutation.mutate() : openLoginModal();
-            }}
-            className={`btn ${data.liked ? 'bg-red-900/30 text-red-500' : 'btn-ghost'}`}
-          >
-            ♥ {data.likes_count} {t('like')}
-          </button>
-          <a
-            id="whatsapp-share-post"
-            href={`https://wa.me/?text=${encodeURIComponent(`${data.title} – https://farols.co.tz/posts/${data.slug}`)}`}
-            target="_blank" rel="noopener noreferrer"
-            className="btn btn-ghost text-green-500"
-            onClick={() => api.post(`/posts/${data.id}/share`, { platform: 'whatsapp' }).catch(() => {})}
-          >
-            ↗ {t('shareWhatsApp')}
-          </a>
+        {/* Social Actions */}
+        <div className="border-t border-surface-border bg-surface-raised/50">
+          <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+              <span className="text-sm font-medium text-[rgb(var(--text-secondary))]">Share & Engage</span>
+              <button
+                id="like-post-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  isAuthenticated ? likeMutation.mutate() : openLoginModal();
+                }}
+                className={`btn transition-all duration-200 ${
+                  data.liked 
+                    ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30' 
+                    : 'btn-ghost hover:text-red-400'
+                }`}
+              >
+                <span className="text-lg">♥</span>
+                <span>{data.likes_count}</span>
+                <span>{t('like')}</span>
+              </button>
+              <a
+                id="whatsapp-share-post"
+                href={`https://wa.me/?text=${encodeURIComponent(`${data.title} – https://farols.co.tz/posts/${data.slug}`)}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn btn-ghost text-green-400 hover:text-green-300"
+                onClick={() => api.post(`/posts/${data.id}/share`, { platform: 'whatsapp' }).catch(() => {})}
+              >
+                <span>↗</span>
+                <span>{t('shareWhatsApp')}</span>
+              </a>
+            </div>
+          </div>
         </div>
 
-        {/* Comments */}
-        <section className="max-w-3xl mx-auto mt-12">
-          <h2 className="text-xl font-display font-semibold mb-5">
-            💬 {t('comment')} ({commentsData?.comments?.length ?? 0})
+        {/* Comments Section */}
+        <section className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-[rgb(var(--text-primary))] mb-8">
+            💬 {t('comment')} <span className="text-base text-[rgb(var(--text-secondary))]">({commentsData?.comments?.length ?? 0})</span>
           </h2>
-          {isAuthenticated && (
-            <div className="flex gap-3 mb-6">
-              <input
+
+          {isAuthenticated ? (
+            <div className="mb-10 p-6 bg-surface-raised rounded-xl border border-surface-border flex flex-col gap-3">
+              <textarea
                 id="comment-input"
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                className="input flex-1"
+                className="input resize-none h-24"
                 placeholder="Share your thoughts…"
               />
-              <button
-                id="comment-submit"
-                onClick={() => comment.trim() && commentMutation.mutate()}
+              <div className="flex justify-end">
+                <button
+                  id="comment-submit"
+                  onClick={() => comment.trim() && commentMutation.mutate()}
+                  disabled={!comment.trim() || commentMutation.isPending}
+                  className="btn-primary"
+                >
+                  {commentMutation.isPending ? 'Posting...' : 'Post Comment'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-10 p-6 bg-brand-600/10 border border-brand-600/30 rounded-xl text-center">
+              <p className="text-[rgb(var(--text-primary))] mb-4">{t('login')} to comment</p>
+              <button 
+                onClick={openLoginModal}
                 className="btn-primary"
               >
-                Send
+                Sign In
               </button>
             </div>
           )}
-          <div className="space-y-5">
+
+          <div className="space-y-2">
             {commentsData?.comments?.map(c => (
               <CommentItem key={c.id} comment={c} postId={data.id} />
             ))}
+            {(!commentsData?.comments || commentsData.comments.length === 0) && (
+              <p className="text-center py-8 text-[rgb(var(--text-secondary))]">No comments yet. Be the first to share your thoughts!</p>
+            )}
           </div>
         </section>
       </main>
+      </PageWrapper>
     </>
   );
 }

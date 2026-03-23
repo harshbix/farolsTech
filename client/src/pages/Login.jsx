@@ -18,7 +18,7 @@ export default function Login() {
       toast.success(`Welcome back, ${data.user.username}!`);
       navigate(data.user?.role === 'admin' ? '/dashboard' : '/');
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Login failed'),
+    onError: (err) => toast.error(getErrorMessage(err, 'Login failed')),
   });
 
   return (

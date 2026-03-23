@@ -25,3 +25,19 @@ export const likeLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many like actions, please try again shortly.' },
 });
+
+export const commentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many comments, please try again shortly.' },
+});
+
+export const shareLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many shares, please try again shortly.' },
+});

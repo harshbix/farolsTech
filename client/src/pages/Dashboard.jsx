@@ -15,7 +15,7 @@ export default function Dashboard() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-posts', tab],
-    queryFn: () => api.get(`/posts?author=${user.username}&status=${tab}&limit=50`).then(r => r.data),
+    queryFn: () => api.get(`/posts?author_id=${user.id}&status=${tab}&limit=50`).then(r => r.data),
   });
 
   const deleteMutation = useMutation({

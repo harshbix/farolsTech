@@ -10,6 +10,7 @@ import Underline from '@tiptap/extension-underline';
 import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import SEOHead from '../components/SEOHead.jsx';
+import { getErrorMessage } from '../utils/errorFormatter.js';
 
 function normalizeAssetUrl(url) {
   if (!url) return url;
@@ -34,27 +35,37 @@ function EditorToolbar({ editor, onUploadClick }) {
     <button
       type="button"
       onClick={action}
-      className={`px-2 py-1 text-sm rounded transition-colors ${active ? 'bg-brand-600 text-white' : 'hover:bg-white/10 text-gray-300'}`}
+      className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+        active 
+          ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30' 
+          : 'text-[rgb(var(--text-secondary))] hover:bg-surface-muted border border-transparent'
+      }`}
     >
       {label}
     </button>
   );
   return (
-    <div className="flex flex-wrap gap-1 p-2 border-b border-surface-border bg-surface-raised rounded-t-lg">
-      {btn(() => editor.chain().focus().toggleBold().run(), 'B', editor.isActive('bold'))}
-      {btn(() => editor.chain().focus().toggleItalic().run(), 'I', editor.isActive('italic'))}
-      {btn(() => editor.chain().focus().toggleUnderline().run(), 'U', editor.isActive('underline'))}
-      {btn(() => editor.chain().focus().toggleStrike().run(), 'S', editor.isActive('strike'))}
-      <div className="w-px bg-surface-border mx-1" />
-      {btn(() => editor.chain().focus().toggleHeading({ level: 2 }).run(), 'H2', editor.isActive('heading', { level: 2 }))}
-      {btn(() => editor.chain().focus().toggleHeading({ level: 3 }).run(), 'H3', editor.isActive('heading', { level: 3 }))}
-      <div className="w-px bg-surface-border mx-1" />
-      {btn(() => editor.chain().focus().toggleBulletList().run(), '• List', editor.isActive('bulletList'))}
-      {btn(() => editor.chain().focus().toggleOrderedList().run(), '1. List', editor.isActive('orderedList'))}
-      {btn(() => editor.chain().focus().toggleBlockquote().run(), '❝', editor.isActive('blockquote'))}
-      {btn(() => editor.chain().focus().toggleCodeBlock().run(), '</>', editor.isActive('codeBlock'))}
-      <div className="w-px bg-surface-border mx-1" />
-      {btn(onUploadClick, 'Image')}
+    <div className="flex flex-wrap gap-2 p-4 border-b border-surface-border bg-surface-raised rounded-t-xl">
+      <div className="flex gap-1">
+        {btn(() => editor.chain().focus().toggleBold().run(), '𝐁', editor.isActive('bold'))}
+        {btn(() => editor.chain().focus().toggleItalic().run(), '𝘐', editor.isActive('italic'))}
+        {btn(() => editor.chain().focus().toggleUnderline().run(), '𝑼', editor.isActive('underline'))}
+        {btn(() => editor.chain().focus().toggleStrike().run(), '𝑺', editor.isActive('strike'))}
+      </div>
+      <div className="w-px bg-surface-border"/>
+      <div className="flex gap-1">
+        {btn(() => editor.chain().focus().toggleHeading({ level: 2 }).run(), 'H2', editor.isActive('heading', { level: 2 }))}
+        {btn(() => editor.chain().focus().toggleHeading({ level: 3 }).run(), 'H3', editor.isActive('heading', { level: 3 }))}
+      </div>
+      <div className="w-px bg-surface-border"/>
+      <div className="flex gap-1">
+        {btn(() => editor.chain().focus().toggleBulletList().run(), '• List', editor.isActive('bulletList'))}
+        {btn(() => editor.chain().focus().toggleOrderedList().run(), '1. List', editor.isActive('orderedList'))}
+        {btn(() => editor.chain().focus().toggleBlockquote().run(), '❝', editor.isActive('blockquote'))}
+        {btn(() => editor.chain().focus().toggleCodeBlock().run(), '</>', editor.isActive('codeBlock'))}
+      </div>
+      <div className="w-px bg-surface-border"/>
+      {btn(onUploadClick, '📷 Image')}
     </div>
   );
 }
@@ -64,6 +75,8 @@ export default function Editor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const imageInputRef = useRef(null);
+  const coverImageInputRef = useRef(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [meta, setMeta] = useState({
     title: '', excerpt: '', cover_image: '', status: 'draft',
     meta_title: '', meta_desc: '', category_id: null,
@@ -80,15 +93,21 @@ export default function Editor() {
     ],
     content: '',
     editorProps: {
-      attributes: { class: 'article-content min-h-[400px] focus:outline-none p-4' },
+      attributes: { class: 'article-content min-h-[500px] focus:outline-none p-6 text-[rgb(var(--text-primary))]' },
     },
   });
 
   // Load existing post if editing
   const { data: existing } = useQuery({
     queryKey: ['post-edit', id],
-    queryFn: () => api.get(`/posts/${id}`).then(r => r.data.post),
+    queryFn: () => api.get(`/posts/id/${id}`).then(r => r.data.post),
     enabled: !!id,
+  });
+
+  // Load categories
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get('/categories').then(r => r.data.categories),
   });
 
   useEffect(() => {
@@ -122,7 +141,7 @@ export default function Editor() {
       queryClient.invalidateQueries({ queryKey: ['trending'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-posts'] });
 
-      toast.success(meta.status === 'published' ? 'Published! 🎉' : 'Draft saved');
+      toast.success(meta.status === 'published' ? '✨ Published successfully!' : '💾 Draft saved');
       if (data?.post?.status === 'published' && data?.post?.slug) {
         navigate(`/posts/${data.post.slug}`);
         return;
@@ -130,10 +149,26 @@ export default function Editor() {
 
       if (!id && data?.post?.id) navigate(`/editor/${data.post.id}`);
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Save failed'),
+    onError: (err) => toast.error(getErrorMessage(err, 'Save failed')),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/posts/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setShowDeleteModal(false);
+      toast.success('📁 Story archived');
+      navigate('/editor');
+    },
+    onError: (err) => toast.error(getErrorMessage(err, 'Archive failed')),
   });
 
   const save = useCallback((status) => {
+    if (!meta.title.trim()) {
+      toast.error('Please add a title');
+      return;
+    }
     const content = editor?.getJSON();
     saveMutation.mutate({
       ...meta,
@@ -170,78 +205,288 @@ export default function Editor() {
         editor.chain().focus().setImage({ src, alt: meta.title || 'Farols image' }).run();
       }
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Image upload failed');
+      toast.error(getErrorMessage(err, 'Image upload failed'));
     }
   };
+
+  const handleCoverImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const { data } = await api.post('/uploads/posts/image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (data?.image?.url) {
+        setMeta(m => ({ ...m, cover_image: data.image.url }));
+        toast.success('Cover image added');
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Cover upload failed'));
+    }
+  };
+
+  const coverImageUrl = meta.cover_image ? normalizeAssetUrl(meta.cover_image) : null;
 
   return (
     <>
       <SEOHead title={id ? 'Edit Post' : 'New Post'} description="Write and publish your story" />
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-display font-bold">{id ? 'Edit Post' : 'New Post'}</h1>
-          <div className="flex gap-3">
-            <button
-              id="save-draft-btn"
-              onClick={() => save('draft')}
-              disabled={saveMutation.isPending}
-              className="btn-ghost"
-            >
-              Save Draft
-            </button>
-            <button
-              id="publish-btn"
-              onClick={() => save('published')}
-              disabled={saveMutation.isPending}
-              className="btn-primary"
-            >
-              {saveMutation.isPending ? 'Saving…' : 'Publish'}
-            </button>
+      <div className="bg-[rgb(var(--surface-bg))] min-h-screen">
+        
+        {/* Top Action Bar */}
+        <div className="sticky top-0 z-40 border-b border-surface-border bg-[rgb(var(--surface-bg))]/95 backdrop-blur-md">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/editor')}
+                className="p-2 hover:bg-surface-raised rounded-lg transition-colors text-[rgb(var(--text-secondary))]"
+              >
+                ← Back
+              </button>
+              <div>
+                <h1 className="font-display font-bold text-lg text-[rgb(var(--text-primary))]">
+                  {id ? 'Edit Story' : 'New Story'}
+                </h1>
+                <p className="text-xs text-[rgb(var(--text-secondary))]">
+                  {meta.status === 'published' ? '🟢 Published' : meta.status === 'draft' ? '🟡 Draft' : '⚪ Archived'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {id && (
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-red-400 hover:text-red-300"
+                  title="Archive this story"
+                >
+                  🗑️ Archive
+                </button>
+              )}
+              <button
+                onClick={() => save('draft')}
+                disabled={saveMutation.isPending}
+                className="px-4 py-2 rounded-lg border border-surface-border text-[rgb(var(--text-primary))] hover:border-brand-500 transition-colors disabled:opacity-50"
+              >
+                {saveMutation.isPending ? '⏳ Saving…' : 'Save Draft'}
+              </button>
+              <button
+                onClick={() => save('published')}
+                disabled={saveMutation.isPending || !meta.title.trim()}
+                className="px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors disabled:opacity-50"
+              >
+                {saveMutation.isPending ? '⏳ Publishing…' : '📤 Publish'}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Title */}
-        <input
-          id="post-title"
-          value={meta.title}
-          onChange={e => setMeta(m => ({ ...m, title: e.target.value }))}
-          className="w-full bg-transparent text-3xl font-display font-bold placeholder-gray-600 focus:outline-none mb-4 border-0"
-          placeholder="Post title…"
-        />
+        {/* Main Content */}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          
+          {/* Cover Image Section */}
+          <div className="mb-8">
+            {coverImageUrl ? (
+              <div className="relative group rounded-2xl overflow-hidden border border-surface-border mb-4">
+                <img
+                  src={coverImageUrl}
+                  alt="Cover"
+                  className="w-full h-80 object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <button
+                    onClick={() => coverImageInputRef.current?.click()}
+                    className="px-4 py-2 bg-white text-black rounded-lg font-medium flex items-center gap-2"
+                  >
+                    🖼️ Change Cover
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => coverImageInputRef.current?.click()}
+                className="w-full h-80 border-2 border-dashed border-surface-border rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-brand-500 hover:bg-brand-500/5 transition-all group cursor-pointer mb-4"
+              >
+                <span className="text-5xl">🖼️</span>
+                <div className="text-center">
+                  <p className="font-semibold text-[rgb(var(--text-primary))] group-hover:text-brand-400 transition-colors">
+                    Add Cover Image
+                  </p>
+                  <p className="text-sm text-[rgb(var(--text-secondary))]">
+                    Drag & drop or click to upload
+                  </p>
+                </div>
+              </button>
+            )}
+            <input
+              ref={coverImageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleCoverImageUpload}
+            />
+          </div>
 
-        {/* Cover image URL */}
-        <input
-          value={meta.cover_image}
-          onChange={e => setMeta(m => ({ ...m, cover_image: e.target.value }))}
-          className="input text-sm mb-4"
-          placeholder="Cover image URL (optional)"
-        />
+          {/* Title Section */}
+          <div className="mb-8">
+            <input
+              id="post-title"
+              value={meta.title}
+              onChange={e => setMeta(m => ({ ...m, title: e.target.value }))}
+              className="w-full bg-transparent text-4xl md:text-5xl font-display font-bold text-[rgb(var(--text-primary))] placeholder-surface-muted focus:outline-none border-0"
+              placeholder="Your story title…"
+            />
+            {meta.title && (
+              <p className="text-sm text-[rgb(var(--text-secondary))] mt-2">
+                {meta.title.length} characters
+              </p>
+            )}
+          </div>
 
-        {/* Tiptap editor */}
-        <div className="card">
-          <EditorToolbar editor={editor} onUploadClick={() => imageInputRef.current?.click()} />
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handleImageUpload}
-          />
-          <EditorContent editor={editor} />
+          {/* Metadata Strip */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 pb-8 border-b border-surface-border">
+            <div>
+              <label className="block text-sm font-semibold text-[rgb(var(--text-secondary))] mb-2">
+                Category
+              </label>
+              <select
+                value={meta.category_id || ''}
+                onChange={e => setMeta(m => ({ ...m, category_id: e.target.value ? parseInt(e.target.value) : null }))}
+                className="w-full px-3 py-2 bg-surface-raised border border-surface-border rounded-lg text-[rgb(var(--text-primary))] focus:outline-none focus:border-brand-500"
+              >
+                <option value="">No category</option>
+                {categories?.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-[rgb(var(--text-secondary))] mb-2">
+                Status
+              </label>
+              <select
+                value={meta.status}
+                onChange={e => setMeta(m => ({ ...m, status: e.target.value }))}
+                className="w-full px-3 py-2 bg-surface-raised border border-surface-border rounded-lg text-[rgb(var(--text-primary))] focus:outline-none focus:border-brand-500"
+              >
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-[rgb(var(--text-secondary))] mb-2">
+                Excerpt
+              </label>
+              <input
+                value={meta.excerpt}
+                onChange={e => setMeta(m => ({ ...m, excerpt: e.target.value }))}
+                className="w-full px-3 py-2 bg-surface-raised border border-surface-border rounded-lg text-[rgb(var(--text-primary))] text-sm focus:outline-none focus:border-brand-500"
+                placeholder="Brief summary…"
+                maxLength={160}
+              />
+            </div>
+          </div>
+
+          {/* Editor Section */}
+          <div className="mb-8">
+            <p className="text-sm font-semibold text-[rgb(var(--text-secondary))] mb-3">
+              Content
+            </p>
+            <div className="card rounded-xl overflow-hidden border border-surface-border">
+              <EditorToolbar editor={editor} onUploadClick={() => imageInputRef.current?.click()} />
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <EditorContent editor={editor} />
+            </div>
+          </div>
+
+          {/* SEO Settings */}
+          <div className="mb-8">
+            <details className="card p-6 rounded-xl border border-surface-border group">
+              <summary className="cursor-pointer flex items-center justify-between font-semibold text-[rgb(var(--text-primary))] select-none">
+                <span>🔍 SEO Settings</span>
+                <span className="transition-transform group-open:rotate-180">▼</span>
+              </summary>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-[rgb(var(--text-secondary))] mb-2">
+                    Meta Title
+                  </label>
+                  <input
+                    value={meta.meta_title}
+                    onChange={e => setMeta(m => ({ ...m, meta_title: e.target.value }))}
+                    className="w-full px-3 py-2 bg-surface-raised border border-surface-border rounded-lg text-[rgb(var(--text-primary))] text-sm focus:outline-none focus:border-brand-500"
+                    placeholder="How this appears in search results"
+                    maxLength={70}
+                  />
+                  <p className="text-xs text-[rgb(var(--text-secondary))] mt-1">
+                    {meta.meta_title.length} / 70 characters
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[rgb(var(--text-secondary))] mb-2">
+                    Meta Description
+                  </label>
+                  <textarea
+                    value={meta.meta_desc}
+                    onChange={e => setMeta(m => ({ ...m, meta_desc: e.target.value }))}
+                    className="w-full px-3 py-2 bg-surface-raised border border-surface-border rounded-lg text-[rgb(var(--text-primary))] text-sm focus:outline-none focus:border-brand-500 resize-none"
+                    rows={3}
+                    placeholder="Brief description for search engines…"
+                    maxLength={160}
+                  />
+                  <p className="text-xs text-[rgb(var(--text-secondary))] mt-1">
+                    {meta.meta_desc.length} / 160 characters
+                  </p>
+                </div>
+              </div>
+            </details>
+          </div>
+
         </div>
 
-        {/* SEO meta */}
-        <details className="mt-6 card p-4">
-          <summary className="cursor-pointer text-sm font-medium text-gray-300">SEO Settings</summary>
-          <div className="mt-4 space-y-3">
-            <input value={meta.meta_title} onChange={e => setMeta(m => ({ ...m, meta_title: e.target.value }))}
-              className="input text-sm" placeholder="Meta title (max 70 chars)" maxLength={70} />
-            <textarea value={meta.meta_desc} onChange={e => setMeta(m => ({ ...m, meta_desc: e.target.value }))}
-              className="input text-sm resize-none" rows={2} placeholder="Meta description (max 160 chars)" maxLength={160} />
-            <input value={meta.excerpt} onChange={e => setMeta(m => ({ ...m, excerpt: e.target.value }))}
-              className="input text-sm" placeholder="Short excerpt shown in post cards…" />
+        {/* Delete Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-surface-raised rounded-2xl border border-surface-border p-6 max-w-md w-full space-y-4">
+              <h2 className="text-xl font-bold text-[rgb(var(--text-primary))] flex items-center gap-2">
+                🗑️ Archive Story
+              </h2>
+              <p className="text-[rgb(var(--text-secondary))]">
+                This will move your story to the archive. You can restore it later from your dashboard.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 px-4 py-2 rounded-lg border border-surface-border text-[rgb(var(--text-primary))] hover:bg-surface-muted transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? 'Archiving…' : 'Archive'}
+                </button>
+              </div>
+            </div>
           </div>
-        </details>
+        )}
+
       </div>
     </>
   );

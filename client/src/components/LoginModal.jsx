@@ -20,7 +20,7 @@ export default function LoginModal() {
       closeLoginModal();
       if (data.user?.role === 'admin') navigate('/dashboard');
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'Login failed'),
+    onError: (err) => toast.error(getErrorMessage(err, 'Login failed')),
   });
 
   const oauthMutation = useMutation({
@@ -30,7 +30,7 @@ export default function LoginModal() {
       toast.success(`Successfully signed in with ${data.provider}!`);
       closeLoginModal();
     },
-    onError: (err) => toast.error(err.response?.data?.error || 'OAuth integration failed'),
+    onError: (err) => toast.error(getErrorMessage(err, 'OAuth integration failed')),
   });
 
   if (!isLoginModalOpen) return null;

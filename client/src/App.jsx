@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster, toast } from 'react-hot-toast';
+import { AnimatePresence } from 'framer-motion';
 import './i18n/index.js';
 
 import { useAuthStore, useUIStore } from './store/index.js';
@@ -104,23 +105,25 @@ export default function App() {
             <div className="min-h-screen flex flex-col bg-surface">
               <Navbar />
               <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/"                  element={<Home />} />
-                  <Route path="/posts/:slug"       element={<PostDetail />} />
-                  <Route path="/category/:slug"    element={<Category />} />
-                  <Route path="/author/:username"  element={<Author />} />
-                  <Route path="/search"            element={<Search />} />
+                <AnimatePresence mode="wait" initial={false}>
+                  <Routes>
+                    <Route path="/"                  element={<Home />} />
+                    <Route path="/posts/:slug"       element={<PostDetail />} />
+                    <Route path="/category/:slug"    element={<Category />} />
+                    <Route path="/author/:username"  element={<Author />} />
+                    <Route path="/search"            element={<Search />} />
 
-                  <Route path="/login"    element={<AuthRoute><Login /></AuthRoute>} />
-                  <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
+                    <Route path="/login"    element={<AuthRoute><Login /></AuthRoute>} />
+                    <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
 
-                  <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
-                  <Route path="/editor"    element={<AdminRoute><Editor /></AdminRoute>} />
-                  <Route path="/editor/:id" element={<AdminRoute><Editor /></AdminRoute>} />
-                  <Route path="/bookmarks" element={<PrivateRoute><Bookmarks /></PrivateRoute>} />
+                    <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+                    <Route path="/editor"    element={<AdminRoute><Editor /></AdminRoute>} />
+                    <Route path="/editor/:id" element={<AdminRoute><Editor /></AdminRoute>} />
+                    <Route path="/bookmarks" element={<PrivateRoute><Bookmarks /></PrivateRoute>} />
 
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </AnimatePresence>
               </Suspense>
               <LoginModal />
               <Footer />

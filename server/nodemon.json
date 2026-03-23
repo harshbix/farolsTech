@@ -1,0 +1,19 @@
+{
+  "watch": ["src"],
+  "ext": "js",
+  "ignore": ["node_modules", "data", "uploads", "logs"],
+  "delay": 1000,
+  "restartDelay": 2000,
+  "legacyWatch": true,
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "exec": "node",
+  "script": "src/index.js",
+  "signal": "SIGTERM",
+  "verbose": true,
+  "events": {
+    "restart": "echo '⚡ Server restarted'",
+    "crash": "echo '❌ Server crashed'"
+  }
+}

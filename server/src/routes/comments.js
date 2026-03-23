@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../db/client.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { commentLimiter } from '../middleware/rateLimiter.js';
 import { broadcastComment, pushNotification } from '../services/websocket.js';
 import { sanitizePlainText } from '../utils/sanitize.js';
 import { z } from 'zod';
@@ -36,7 +37,7 @@ router.get('/', optionalAuth, (req, res) => {
 });
 
 // POST /api/posts/:postId/comments
-router.post('/', requireAuth, (req, res, next) => {
+router.post('/', commentLimiter, requireAuth, (req, res, next) => {
   try {
     const schema = z.object({
       body: z.string().min(1).max(2000),
