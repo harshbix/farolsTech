@@ -6,9 +6,13 @@ import { SkeletonCard } from '../components/PageLoader.jsx';
 
 export default function Feed() {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['personalized-feed'],
-    queryFn: () => api.get('/users/me/feed?limit=20').then((r) => r.data),
+    queryKey: ['feed'],
+    queryFn: () => api.get('/feed?limit=24').then((r) => r.data),
   });
+
+  const forYou = data?.forYou || data?.posts || [];
+  const trending = data?.trending || [];
+  const latest = data?.latest || [];
 
   return (
     <>
@@ -19,7 +23,7 @@ export default function Feed() {
           <p className="text-gray-400 mt-2">
             {data?.hasReadHistory
               ? 'Unread-first recommendations based on your recent reads.'
-              : 'Fresh stories to help you start building your personalized feed.'}
+              : 'A unified stream of personalized, trending, and latest stories.'}
           </p>
         </div>
 
@@ -38,14 +42,37 @@ export default function Feed() {
         )}
 
         {!isLoading && !isError && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data?.posts?.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
+          <div className="space-y-12">
+            <section>
+              <h2 className="text-xl font-display font-semibold mb-4">For You</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {forYou.map((post) => (
+                  <PostCard key={`fy-${post.id}`} post={post} />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-display font-semibold mb-4">Trending</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trending.map((post) => (
+                  <PostCard key={`tr-${post.id}`} post={post} />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-display font-semibold mb-4">Latest</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {latest.map((post) => (
+                  <PostCard key={`lt-${post.id}`} post={post} />
+                ))}
+              </div>
+            </section>
           </div>
         )}
 
-        {!isLoading && !isError && (!data?.posts || data.posts.length === 0) && (
+        {!isLoading && !isError && forYou.length === 0 && trending.length === 0 && latest.length === 0 && (
           <p className="text-center text-gray-500 py-16">No recommendations yet. Read a few stories and come back.</p>
         )}
       </div>

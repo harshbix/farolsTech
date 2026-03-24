@@ -3,6 +3,7 @@ import { getDb } from '../db/client.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { paginate } from '../utils/helpers.js';
 import { z } from 'zod';
+import { parsePostIdentity, toUnifiedLocalId } from '../services/postIdentity.js';
 
 const router = Router();
 
@@ -64,14 +65,40 @@ router.put('/:id', requireAuth, (req, res, next) => {
 // POST /api/users/me/read/:postId
 router.post('/me/read/:postId', requireAuth, (req, res, next) => {
   try {
-    const postId = Number.parseInt(req.params.postId, 10);
-    if (!Number.isFinite(postId)) return res.status(400).json({ error: 'Invalid post id' });
+    const identity = parsePostIdentity(req.params.postId);
+    if (!identity.unifiedId) return res.status(400).json({ error: 'Invalid post id' });
 
     const db = getDb();
-    const post = db.prepare("SELECT id FROM posts WHERE id = ? AND status = 'published'").get(postId);
-    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (identity.sourceType === 'local') {
+      const post = db.prepare("SELECT id FROM posts WHERE id = ? AND status = 'published'").get(identity.localId);
+      if (!post) return res.status(404).json({ error: 'Post not found' });
 
-    db.prepare('INSERT OR IGNORE INTO user_reads (user_id, post_id) VALUES (?, ?)').run(req.user.id, postId);
+      db.prepare('INSERT OR IGNORE INTO user_reads (user_id, post_id) VALUES (?, ?)').run(req.user.id, identity.localId);
+      db.prepare('UPDATE posts SET views = views + 1 WHERE id = ?').run(identity.localId);
+
+      db.prepare(`
+        INSERT OR IGNORE INTO post_analytics (post_id, views, likes, shares, comments, avg_read_time, last_updated)
+        VALUES (?, 0, 0, 0, 0, 0, unixepoch())
+      `).run(toUnifiedLocalId(identity.localId));
+      db.prepare('UPDATE post_analytics SET views = views + 1, last_updated = unixepoch() WHERE post_id = ?')
+        .run(toUnifiedLocalId(identity.localId));
+    } else {
+      const post = db.prepare('SELECT id FROM api_posts WHERE id = ?').get(identity.apiId);
+      if (!post) return res.status(404).json({ error: 'Post not found' });
+
+      db.prepare(`
+        INSERT OR IGNORE INTO post_analytics (post_id, views, likes, shares, comments, avg_read_time, last_updated)
+        VALUES (?, 0, 0, 0, 0, 0, unixepoch())
+      `).run(identity.unifiedId);
+      db.prepare('UPDATE post_analytics SET views = views + 1, last_updated = unixepoch() WHERE post_id = ?')
+        .run(identity.unifiedId);
+    }
+
+    db.prepare(`
+      INSERT INTO user_interactions (user_id, post_id, action, duration, tag_snapshot, created_at)
+      VALUES (?, ?, 'view', 0, NULL, unixepoch())
+    `).run(req.user.id, identity.unifiedId);
+
     res.status(201).json({ ok: true });
   } catch (err) {
     next(err);

@@ -7,6 +7,7 @@
  */
 
 import { fetchFilteredArticles } from '../services/newsFetcher.js';
+import { createHash } from 'crypto';
 
 const INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -26,11 +27,32 @@ function storeArticles(db, articles) {
       (@title, @description, @url, @image_url, @source, @published_at)
   `);
 
+  const stmtUnified = db.prepare(`
+    INSERT OR IGNORE INTO api_posts
+      (id, title, description, source_url, image, source, published_at, cached_at, category, tags)
+    VALUES
+      (@id, @title, @description, @source_url, @image, @source, @published_at, unixepoch(), @category, @tags)
+  `);
+
   const insertMany = db.transaction((items) => {
     let inserted = 0;
     for (const item of items) {
       const result = stmt.run(item);
       if (result.changes > 0) inserted++;
+
+      const hash = createHash('sha1').update(String(item.url)).digest('hex').slice(0, 16);
+      const publishedEpoch = Math.floor(new Date(item.published_at).getTime() / 1000) || Math.floor(Date.now() / 1000);
+      stmtUnified.run({
+        id: `api_${hash}`,
+        title: item.title,
+        description: item.description,
+        source_url: item.url,
+        image: item.image_url,
+        source: item.source,
+        published_at: publishedEpoch,
+        category: 'technology',
+        tags: 'technology,news,api',
+      });
     }
     return inserted;
   });

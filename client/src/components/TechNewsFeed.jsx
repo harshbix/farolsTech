@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const LIMIT = 20;
 const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
@@ -75,6 +76,7 @@ function SkeletonGrid() {
 }
 
 export default function TechNewsFeed() {
+  const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -121,7 +123,11 @@ export default function TechNewsFeed() {
     setRefreshTick((tick) => tick + 1);
   };
 
-  const openExternal = (url) => {
+  const openDetails = (id, url) => {
+    if (id !== undefined && id !== null && String(id).trim() !== '') {
+      navigate(`/news/external/${encodeURIComponent(String(id))}`);
+      return;
+    }
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -178,11 +184,11 @@ export default function TechNewsFeed() {
                 role="link"
                 tabIndex={0}
                 aria-label={article.title}
-                onClick={() => openExternal(article.url)}
+                onClick={() => openDetails(article.id, article.url)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    openExternal(article.url);
+                    openDetails(article.id, article.url);
                   }
                 }}
               >
@@ -231,10 +237,10 @@ export default function TechNewsFeed() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      openExternal(article.url);
+                      openDetails(article.id, article.url);
                     }}
                   >
-                    Read more
+                    View details
                   </button>
                 </div>
               </article>

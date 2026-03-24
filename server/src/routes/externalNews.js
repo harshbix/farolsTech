@@ -40,18 +40,28 @@ router.get('/', (req, res) => {
   }
 
   try {
-    const articles = db
-      .prepare(
-        `
-        SELECT id, title, description, url, image_url, source, published_at
-        FROM   external_articles
-        ORDER  BY published_at DESC
-        LIMIT  ? OFFSET ?
-      `
-      )
-      .all(limit, offset);
+    const hasApiPosts = !!db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='api_posts'")
+      .get();
 
-    const count = db.prepare('SELECT COUNT(*) AS count FROM external_articles').get();
+    const articles = hasApiPosts
+      ? db.prepare(`
+          SELECT id, title, description, source_url AS url, image AS image_url, source,
+                 datetime(published_at, 'unixepoch') AS published_at
+          FROM api_posts
+          ORDER BY published_at DESC
+          LIMIT ? OFFSET ?
+        `).all(limit, offset)
+      : db.prepare(`
+          SELECT id, title, description, url, image_url, source, published_at
+          FROM external_articles
+          ORDER BY published_at DESC
+          LIMIT ? OFFSET ?
+        `).all(limit, offset);
+
+    const count = hasApiPosts
+      ? db.prepare('SELECT COUNT(*) AS count FROM api_posts').get()
+      : db.prepare('SELECT COUNT(*) AS count FROM external_articles').get();
     const total = count.count;
     console.log(`[externalNews] Articles in DB: ${count.count}`);
 
@@ -59,6 +69,57 @@ router.get('/', (req, res) => {
   } catch (err) {
     console.error('[GET /api/external-news] Database error:', err.message);
     res.status(500).json({ error: 'Failed to retrieve articles.' });
+  }
+});
+
+/**
+ * GET /api/external-news/:id
+ *
+ * Returns a single external news article by id.
+ */
+router.get('/:id', (req, res) => {
+  const db = req.app.get('db') || getDb();
+  const { id } = req.params;
+
+  try {
+    const hasApiPosts = !!db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='api_posts'")
+      .get();
+
+    let article = null;
+
+    if (hasApiPosts) {
+      article = db.prepare(`
+        SELECT id, title, description, source_url AS url, image AS image_url, source,
+               datetime(published_at, 'unixepoch') AS published_at
+        FROM api_posts
+        WHERE id = ?
+        LIMIT 1
+      `).get(id);
+    }
+
+    if (!article) {
+      const numericId = Number(id);
+      if (Number.isNaN(numericId)) {
+        return res.status(404).json({ error: 'Article not found' });
+      }
+
+      article = db.prepare(`
+        SELECT id, title, description, url, image_url, source, published_at
+        FROM external_articles
+        WHERE id = ?
+        LIMIT 1
+      `).get(numericId);
+    }
+
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    res.json({ article });
+  } catch (err) {
+    console.error('[GET /api/external-news/:id] Database error:', err.message);
+    res.status(500).json({ error: 'Failed to retrieve article.' });
   }
 });
 

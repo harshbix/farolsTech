@@ -3,6 +3,7 @@ import { getDb } from '../db/client.js';
 import { requireAuth } from '../middleware/auth.js';
 import { likeLimiter } from '../middleware/rateLimiter.js';
 import { pushNotification } from '../services/websocket.js';
+import { parsePostIdentity, toUnifiedLocalId } from '../services/postIdentity.js';
 
 const router = Router({ mergeParams: true });
 
@@ -10,35 +11,77 @@ const router = Router({ mergeParams: true });
 router.post('/', likeLimiter, requireAuth, (req, res, next) => {
   try {
     const db = getDb();
-    const post = db.prepare("SELECT id, author_id FROM posts WHERE id = ? AND status = 'published'").get(req.params.postId);
+    const identity = parsePostIdentity(req.params.postId);
+    if (!identity.unifiedId) return res.status(400).json({ error: 'Invalid post id' });
+
+    if (identity.sourceType === 'api') {
+      const apiPost = db.prepare('SELECT id FROM api_posts WHERE id = ?').get(identity.apiId);
+      if (!apiPost) return res.status(404).json({ error: 'Post not found' });
+
+      const state = db
+        .prepare('SELECT liked FROM post_engagements WHERE post_id = ? AND user_id = ?')
+        .get(identity.unifiedId, req.user.id);
+
+      const nextLiked = state?.liked ? 0 : 1;
+      db.prepare(`
+        INSERT INTO post_engagements (post_id, user_id, liked, shared_count, last_updated)
+        VALUES (?, ?, ?, 0, unixepoch())
+        ON CONFLICT(post_id, user_id)
+        DO UPDATE SET liked = excluded.liked, last_updated = unixepoch()
+      `).run(identity.unifiedId, req.user.id, nextLiked);
+
+      db.prepare(`
+        INSERT OR IGNORE INTO post_analytics (post_id, views, likes, shares, comments, avg_read_time, last_updated)
+        VALUES (?, 0, 0, 0, 0, 0, unixepoch())
+      `).run(identity.unifiedId);
+
+      const count = db
+        .prepare('SELECT COUNT(*) AS c FROM post_engagements WHERE post_id = ? AND liked = 1')
+        .get(identity.unifiedId).c;
+
+      db.prepare('UPDATE post_analytics SET likes = ?, last_updated = unixepoch() WHERE post_id = ?')
+        .run(count, identity.unifiedId);
+
+      return res.status(200).json({ liked: Boolean(nextLiked), count });
+    }
+
+    const post = db.prepare("SELECT id, author_id FROM posts WHERE id = ? AND status = 'published'").get(identity.localId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
-    const existing = db.prepare('SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?').get(req.params.postId, req.user.id);
+    const existing = db.prepare('SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?').get(identity.localId, req.user.id);
 
     let liked;
     if (existing) {
-      db.prepare('DELETE FROM likes WHERE post_id = ? AND user_id = ?').run(req.params.postId, req.user.id);
+      db.prepare('DELETE FROM likes WHERE post_id = ? AND user_id = ?').run(identity.localId, req.user.id);
       liked = false;
     } else {
-      db.prepare('INSERT INTO likes (post_id, user_id) VALUES (?, ?)').run(req.params.postId, req.user.id);
+      db.prepare('INSERT INTO likes (post_id, user_id) VALUES (?, ?)').run(identity.localId, req.user.id);
       liked = true;
 
       if (post.author_id !== req.user.id) {
         db.prepare(
           "INSERT INTO notifications (user_id, type, payload_json) VALUES (?, 'like', ?)"
-        ).run(post.author_id, JSON.stringify({ post_id: req.params.postId, from: req.user.username }));
+        ).run(post.author_id, JSON.stringify({ post_id: identity.localId, from: req.user.username }));
 
         const unread = db.prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND read = 0').get(post.author_id).c;
         pushNotification(post.author_id, {
           type: 'like',
-          post_id: Number(req.params.postId),
+          post_id: Number(identity.localId),
           from: req.user.username,
           unread,
         });
       }
     }
 
-    const count = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(req.params.postId).c;
+    const count = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(identity.localId).c;
+
+    db.prepare(`
+      INSERT OR IGNORE INTO post_analytics (post_id, views, likes, shares, comments, avg_read_time, last_updated)
+      VALUES (?, 0, 0, 0, 0, 0, unixepoch())
+    `).run(toUnifiedLocalId(identity.localId));
+    db.prepare('UPDATE post_analytics SET likes = ?, last_updated = unixepoch() WHERE post_id = ?')
+      .run(count, toUnifiedLocalId(identity.localId));
+
     res.status(200).json({ liked, count });
   } catch (err) {
     next(err);
@@ -49,8 +92,29 @@ router.post('/', likeLimiter, requireAuth, (req, res, next) => {
 router.delete('/', likeLimiter, requireAuth, (req, res, next) => {
   try {
     const db = getDb();
-    db.prepare('DELETE FROM likes WHERE post_id = ? AND user_id = ?').run(req.params.postId, req.user.id);
-    const count = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(req.params.postId).c;
+    const identity = parsePostIdentity(req.params.postId);
+    if (!identity.unifiedId) return res.status(400).json({ error: 'Invalid post id' });
+
+    if (identity.sourceType === 'api') {
+      db.prepare(`
+        INSERT INTO post_engagements (post_id, user_id, liked, shared_count, last_updated)
+        VALUES (?, ?, 0, 0, unixepoch())
+        ON CONFLICT(post_id, user_id)
+        DO UPDATE SET liked = 0, last_updated = unixepoch()
+      `).run(identity.unifiedId, req.user.id);
+
+      const count = db
+        .prepare('SELECT COUNT(*) AS c FROM post_engagements WHERE post_id = ? AND liked = 1')
+        .get(identity.unifiedId).c;
+      db.prepare('UPDATE post_analytics SET likes = ?, last_updated = unixepoch() WHERE post_id = ?')
+        .run(count, identity.unifiedId);
+      return res.json({ liked: false, count });
+    }
+
+    db.prepare('DELETE FROM likes WHERE post_id = ? AND user_id = ?').run(identity.localId, req.user.id);
+    const count = db.prepare('SELECT COUNT(*) AS c FROM likes WHERE post_id = ?').get(identity.localId).c;
+    db.prepare('UPDATE post_analytics SET likes = ?, last_updated = unixepoch() WHERE post_id = ?')
+      .run(count, toUnifiedLocalId(identity.localId));
     res.json({ liked: false, count });
   } catch (err) {
     next(err);

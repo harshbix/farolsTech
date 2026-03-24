@@ -24,26 +24,10 @@ import { startTrendingJob } from './services/trending.js';
 import { getDb } from './db/client.js';
 import migrate from './db/migrations/001_create_external_articles.js';
 import migrateWorkflowAndEngagement from './db/migrations/002_workflow_and_engagement.js';
+import migrateUnifiedContentPlatform from './db/migrations/003_unified_content_platform.js';
 import { startNewsJob } from './cron/newsJob.js';
 import { startScheduledPublisher } from './cron/scheduledPublisher.js';
-
-// Routes
-import authRoutes        from './routes/auth.js';
-import postsRoutes       from './routes/posts.js';
-import commentsRoutes    from './routes/comments.js';
-import likesRoutes       from './routes/likes.js';
-import sharesRoutes      from './routes/shares.js';
-import searchRoutes      from './routes/search.js';
-import categoriesRoutes  from './routes/categories.js';
-import usersRoutes       from './routes/users.js';
-import notificationsRoutes from './routes/notifications.js';
-import bookmarksRoutes   from './routes/bookmarks.js';
-import uploadsRoutes     from './routes/uploads.js';
-import externalNewsRoutes from './routes/externalNews.js';
-import publishingRoutes   from './routes/publishing.js';
-import moderationRoutes   from './routes/moderation.js';
-import feedRoutes         from './routes/feed.js';
-import analyticsRoutes    from './routes/analytics.js';
+import { registerApiRoutes } from './routes/registerApiRoutes.js';
 
 let helmetMiddleware = (_req, _res, next) => next();
 try {
@@ -71,6 +55,7 @@ try {
   runMigrations();
   migrate(db); // Run external articles migration
   migrateWorkflowAndEngagement(db);
+  migrateUnifiedContentPlatform(db);
 } catch (err) {
   logger.error('[startup] Database migration failed:', err);
 }
@@ -139,33 +124,9 @@ app.use((req, _res, next) => {
   next();
 });
 
-function mountApiRoutes(prefix) {
-  app.use(`${prefix}/auth`, authRoutes);
-  app.use(`${prefix}/posts`, postsRoutes);
-  app.use(`${prefix}/posts/:postId/comments`, commentsRoutes);
-  app.use(`${prefix}/comments`, commentsRoutes);
-  app.use(`${prefix}/posts/:postId/like`, likesRoutes);
-  app.use(`${prefix}/posts/:postId/share`, sharesRoutes);
-  app.use(`${prefix}/search`, searchRoutes);
-  app.use(`${prefix}/categories`, categoriesRoutes);
-  app.use(`${prefix}/users`, usersRoutes);
-  app.use(`${prefix}/notifications`, notificationsRoutes);
-  app.use(`${prefix}/bookmarks`, bookmarksRoutes);
-  app.use(`${prefix}/uploads`, uploadsRoutes);
-  app.use(`${prefix}/external-news`, externalNewsRoutes);
-  app.use(`${prefix}`, publishingRoutes);
-  app.use(`${prefix}`, moderationRoutes);
-  app.use(`${prefix}`, feedRoutes);
-  app.use(`${prefix}`, analyticsRoutes);
-
-  app.get(`${prefix}/health`, (_req, res) => {
-    res.json({ status: 'ok', env: process.env.NODE_ENV, time: new Date().toISOString() });
-  });
-}
-
 // v1 routes + backward compatibility routes
-mountApiRoutes('/api/v1');
-mountApiRoutes('/api');
+registerApiRoutes(app, '/api/v1');
+registerApiRoutes(app, '/api');
 
 // ── Error Handlers ─────────────────────────────────────────────
 app.use(notFound);
@@ -179,28 +140,34 @@ let newsJob = null;
 let scheduledPublisherJob = null;
 let isShuttingDown = false;
 
+const isTestEnv = process.env.NODE_ENV === 'test';
+
 // Initialize servers
-wsServer = setupWebSocket(server);
-trendingJob = startTrendingJob();
-newsJob = startNewsJob(db);
-scheduledPublisherJob = startScheduledPublisher(db);
+if (!isTestEnv) {
+  wsServer = setupWebSocket(server);
+  trendingJob = startTrendingJob();
+  newsJob = startNewsJob(db);
+  scheduledPublisherJob = startScheduledPublisher(db);
+}
 
 // ── Server Error Handler ───────────────────────────────────────
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    logger.error(`Port ${PORT} is already in use. Retrying in 3 seconds...`);
-    setTimeout(() => {
-      server.listen(PORT, () => {
-        logger.info(`Farols API running on http://localhost:${PORT}`);
-      });
-    }, 3000);
-  } else {
-    logger.error('Server error:', err.message);
-    if (!isShuttingDown) {
-      process.exit(1);
+if (!isTestEnv) {
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`Port ${PORT} is already in use. Retrying in 3 seconds...`);
+      setTimeout(() => {
+        server.listen(PORT, () => {
+          logger.info(`Farols API running on http://localhost:${PORT}`);
+        });
+      }, 3000);
+    } else {
+      logger.error('Server error:', err.message);
+      if (!isShuttingDown) {
+        process.exit(1);
+      }
     }
-  }
-});
+  });
+}
 
 // ── Graceful Shutdown Handler ──────────────────────────────────
 function gracefulShutdown(signal) {
@@ -273,24 +240,32 @@ function gracefulShutdown(signal) {
 }
 
 // Handle shutdown signals
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+if (!isTestEnv) {
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
 
 // Handle uncaught errors
-process.on('uncaughtException', (err) => {
-  logger.error('Uncaught Exception:', err);
-  if (!isShuttingDown) {
-    gracefulShutdown('uncaughtException');
-  }
-});
+if (!isTestEnv) {
+  process.on('uncaughtException', (err) => {
+    logger.error('Uncaught Exception:', err);
+    if (!isShuttingDown) {
+      gracefulShutdown('uncaughtException');
+    }
+  });
+}
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
+if (!isTestEnv) {
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+}
 
 // ── Start Server ───────────────────────────────────────────────
-server.listen(PORT, () => {
-  logger.info(`Farols API running on http://localhost:${PORT}`);
-});
+if (!isTestEnv) {
+  server.listen(PORT, () => {
+    logger.info(`Farols API running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;

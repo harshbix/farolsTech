@@ -267,6 +267,27 @@ export default function PostDetail() {
     api.post(`/users/me/read/${data.id}`).catch(() => {});
   }, [data?.id, isAuthenticated]);
 
+  useEffect(() => {
+    if (!data?.id) return undefined;
+
+    const startedAt = Date.now();
+    api.post('/analytics/interactions', {
+      action: 'view',
+      postId: data.id,
+      tags: data.tags?.map((t) => t.name || t.slug || t) || [],
+    }).catch(() => {});
+
+    return () => {
+      const duration = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+      api.post('/analytics/interactions', {
+        action: 'view',
+        postId: data.id,
+        duration,
+        tags: data.tags?.map((t) => t.name || t.slug || t) || [],
+      }).catch(() => {});
+    };
+  }, [data?.id]);
+
   if (isLoading) return <PageLoader />;
   if (!data) return <div className="text-center py-20 text-[rgb(var(--text-secondary))]">Post not found</div>;
 

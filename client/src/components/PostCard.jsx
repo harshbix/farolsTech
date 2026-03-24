@@ -11,7 +11,10 @@ export default function PostCard({ post }) {
   const { isAuthenticated } = useAuthStore();
   const { openLoginModal } = useUIStore();
   const queryClient = useQueryClient();
-  const postUrl = `/posts/${post.slug}`;
+  const isApiPost = post?.sourceType === 'api';
+  const postUrl = isApiPost ? (post?.sourceUrl || '#') : `/posts/${post.slug}`;
+  const coverImage = post?.cover_image || post?.image;
+  const categoryName = post?.category_name || post?.category;
 
   const likeMutation = useMutation({
     mutationFn: () => post.liked
@@ -21,6 +24,7 @@ export default function PostCard({ post }) {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['trending'] });
       queryClient.invalidateQueries({ queryKey: ['posts', 'latest'] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
     },
     onError: () => openLoginModal(),
   });
@@ -29,24 +33,35 @@ export default function PostCard({ post }) {
     ? new Date(post.published_at * 1000).toLocaleDateString('en-TZ', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
+  const handleOpen = () => {
+    if (isApiPost) {
+      if (post?.sourceUrl) {
+        window.open(post.sourceUrl, '_blank', 'noopener,noreferrer');
+        api.post('/analytics/interactions', { action: 'click', postId: post.id, tags: post.tags || [] }).catch(() => {});
+      }
+      return;
+    }
+    navigate(postUrl);
+  };
+
   return (
     <article
       className="post-card cursor-pointer"
       aria-label={post.title}
       role="link"
       tabIndex={0}
-      onClick={() => navigate(postUrl)}
+      onClick={handleOpen}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          navigate(postUrl);
+          handleOpen();
         }
       }}
     >
-      {post.cover_image && (
+      {coverImage && (
         <div className="post-card-img-wrapper">
           <img
-            src={post.cover_image}
+            src={coverImage}
             alt={post.title}
             className="post-card-img"
             loading="lazy"
@@ -54,9 +69,9 @@ export default function PostCard({ post }) {
         </div>
       )}
 
-      {post.category_name && (
+      {categoryName && (
         <div className="newsroom-category">
-          {post.category_name}
+          {categoryName}
         </div>
       )}
 
@@ -71,13 +86,28 @@ export default function PostCard({ post }) {
           {date && <span>{date}</span>}
         </div>
 
-        <Link
-          to={postUrl}
-          onClick={(e) => e.stopPropagation()}
-          className="text-sm font-semibold text-brand-400 hover:text-brand-300 transition-colors"
-        >
-          Read more
-        </Link>
+        {isApiPost ? (
+          <a
+            href={postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.stopPropagation();
+              api.post('/analytics/interactions', { action: 'click', postId: post.id, tags: post.tags || [] }).catch(() => {});
+            }}
+            className="text-sm font-semibold text-brand-400 hover:text-brand-300 transition-colors"
+          >
+            Read more
+          </a>
+        ) : (
+          <Link
+            to={postUrl}
+            onClick={(e) => e.stopPropagation()}
+            className="text-sm font-semibold text-brand-400 hover:text-brand-300 transition-colors"
+          >
+            Read more
+          </Link>
+        )}
 
         <div className="flex items-center gap-3 text-sm text-[rgb(var(--text-secondary))] pt-1">
           <button
@@ -97,7 +127,7 @@ export default function PostCard({ post }) {
           </span>
           <a
             id={`whatsapp-share-${post.id}`}
-            href={`https://wa.me/?text=${encodeURIComponent(`${post.title} – https://farols.co.tz/posts/${post.slug}`)}`}
+            href={`https://wa.me/?text=${encodeURIComponent(`${post.title} – ${isApiPost ? (post.sourceUrl || 'https://farols.co.tz') : `https://farols.co.tz/posts/${post.slug}`}`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-green-500 transition-colors opacity-70"

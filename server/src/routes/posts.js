@@ -4,6 +4,7 @@ import { requireAuth, requireRole, optionalAuth } from '../middleware/auth.js';
 import { slugify, paginate } from '../utils/helpers.js';
 import { sanitizePlainText, sanitizeRichHtml } from '../utils/sanitize.js';
 import { z } from 'zod';
+import { logEndpointTiming, nowMs } from '../utils/performance.js';
 
 const router = Router();
 
@@ -93,6 +94,7 @@ router.get('/', optionalAuth, (req, res) => {
 
 // GET /api/posts/trending
 router.get('/trending', (req, res) => {
+  const startedAt = nowMs();
   const db = getDb();
   const posts = db.prepare(`
     SELECT p.id, p.title, p.slug, p.excerpt, p.cover_image, p.trending_score,
@@ -107,6 +109,7 @@ router.get('/trending', (req, res) => {
     ORDER BY p.trending_score DESC
     LIMIT 10
   `).all();
+  logEndpointTiming('GET /posts/trending', startedAt, { returned: posts.length });
   res.json({ posts });
 });
 

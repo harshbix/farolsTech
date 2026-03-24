@@ -3,17 +3,23 @@ import toast from 'react-hot-toast';
 import SEOHead from '../components/SEOHead.jsx';
 
 export default function Contact() {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [message, setMessage] = useState('');
+  const WHATSAPP_NUMBER = '255755063711';
 
   function onSubmit(event) {
     event.preventDefault();
-    if (!email.trim() || !message.trim()) {
-      toast.error('Please provide email and message');
+    if (!name.trim() || !message.trim()) {
+      toast.error('Please provide your name and message');
       return;
     }
-    toast.success('Message captured. Our editorial team will follow up soon.');
-    setEmail('');
+
+    const text = `Hello Farols, my name is ${name.trim()}.\n\n${message.trim()}`;
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    toast.success('Opening WhatsApp...');
+    setName('');
     setMessage('');
   }
 
@@ -26,25 +32,27 @@ export default function Contact() {
 
         <div className="card p-6 mb-6">
           <p className="text-sm text-gray-300">Email: editorial@farols.news</p>
-          <p className="text-sm text-gray-300 mt-1">Phone: +255 700 000 000</p>
+          <p className="text-sm text-gray-300 mt-1">WhatsApp: +255 755 063 711</p>
           <p className="text-sm text-gray-300 mt-1">Location: Dar es Salaam, Tanzania</p>
         </div>
 
         <form onSubmit={onSubmit} className="card p-6 space-y-4">
           <input
-            type="email"
-            placeholder="Your email"
+            type="text"
+            placeholder="Your name"
             className="input w-full"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
           />
           <textarea
-            placeholder="How can we help?"
+            placeholder="Your message"
             className="input w-full min-h-36"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            required
           />
-          <button type="submit" className="btn-primary">Send message</button>
+          <button type="submit" className="btn-primary">Send via WhatsApp</button>
         </form>
       </div>
     </>
