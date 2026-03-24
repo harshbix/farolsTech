@@ -52,7 +52,10 @@ export default function Contact() {
             onChange={(e) => setMessage(e.target.value)}
             required
           />
-          <button type="submit" className="btn-primary">Send via WhatsApp</button>
+          <button type="submit" className="btn-primary icon-btn" aria-label="Send message on WhatsApp">
+            <span aria-hidden="true">💬</span>
+            <span className="icon-label">Send</span>
+          </button>
         </form>
       </div>
     </>

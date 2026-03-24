@@ -142,17 +142,20 @@ export default function TechNewsFeed() {
           type="button"
           className="tech-news-refresh"
           onClick={handleRefresh}
+          aria-label="Refresh tech news"
           disabled={loading}
         >
-          {loading ? 'Refreshing...' : 'Refresh'}
+          <span aria-hidden="true">↻</span>
+          <span className="icon-label">{loading ? 'Loading' : 'Refresh'}</span>
         </button>
       </div>
 
       {error && (
         <div className="tech-news-error-banner" role="alert">
           <span>Unable to load external tech news right now.</span>
-          <button type="button" className="tech-news-inline-action" onClick={handleRefresh}>
-            Retry
+          <button type="button" className="tech-news-inline-action" onClick={handleRefresh} aria-label="Retry loading tech news">
+            <span aria-hidden="true">⟳</span>
+            <span className="icon-label">Retry</span>
           </button>
         </div>
       )}
@@ -163,8 +166,9 @@ export default function TechNewsFeed() {
         <div className="tech-news-empty" role="status" aria-live="polite">
           <div className="tech-news-empty-icon" aria-hidden="true">🗞️</div>
           <p className="tech-news-empty-title">No articles yet — check back in a few minutes</p>
-          <button type="button" className="tech-news-refresh" onClick={handleRefresh}>
-            Refresh now
+          <button type="button" className="tech-news-refresh" onClick={handleRefresh} aria-label="Refresh news feed">
+            <span aria-hidden="true">↻</span>
+            <span className="icon-label">Refresh</span>
           </button>
         </div>
       )}
@@ -234,13 +238,15 @@ export default function TechNewsFeed() {
                   <button
                     type="button"
                     className="tech-news-readmore"
+                    aria-label={`Open details for ${article.title}`}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       openDetails(article.id, article.url);
                     }}
                   >
-                    View details
+                    <span aria-hidden="true">→</span>
+                    <span className="icon-label">Details</span>
                   </button>
                 </div>
               </article>
