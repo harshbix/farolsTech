@@ -24,6 +24,9 @@ const Terms = lazy(() => import('../pages/Terms.jsx'));
 const Cookies = lazy(() => import('../pages/Cookies.jsx'));
 const News = lazy(() => import('../pages/News.jsx'));
 const ExternalNewsDetail = lazy(() => import('../pages/ExternalNewsDetail.jsx'));
+const ExternalDigests = lazy(() => import('../pages/ExternalDigests.jsx'));
+const NewsAlerts = lazy(() => import('../pages/NewsAlerts.jsx'));
+const ExternalNewsModeration = lazy(() => import('../pages/ExternalNewsModeration.jsx'));
 const Blog = lazy(() => import('../pages/Blog.jsx'));
 const Careers = lazy(() => import('../pages/Careers.jsx'));
 const Press = lazy(() => import('../pages/Press.jsx'));
@@ -76,6 +79,9 @@ export default function AppRoutes() {
         <Route path="/cookies" element={<Cookies />} />
         <Route path="/news" element={<News />} />
         <Route path="/news/external/:id" element={<ExternalNewsDetail />} />
+        <Route path="/news/digests" element={<ExternalDigests />} />
+        <Route path="/news/alerts" element={<NewsAlerts />} />
+        <Route path="/admin/external-news" element={<AdminRoute><ExternalNewsModeration /></AdminRoute>} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/careers" element={<Careers />} />
         <Route path="/press" element={<Press />} />

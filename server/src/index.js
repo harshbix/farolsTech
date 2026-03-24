@@ -25,6 +25,7 @@ import { getDb } from './db/client.js';
 import migrate from './db/migrations/001_create_external_articles.js';
 import migrateWorkflowAndEngagement from './db/migrations/002_workflow_and_engagement.js';
 import migrateUnifiedContentPlatform from './db/migrations/003_unified_content_platform.js';
+import migrateExternalNewsFeatures from './db/migrations/004_external_news_features.js';
 import { startNewsJob } from './cron/newsJob.js';
 import { startScheduledPublisher } from './cron/scheduledPublisher.js';
 import { registerApiRoutes } from './routes/registerApiRoutes.js';
@@ -56,6 +57,7 @@ try {
   migrate(db); // Run external articles migration
   migrateWorkflowAndEngagement(db);
   migrateUnifiedContentPlatform(db);
+  migrateExternalNewsFeatures(db);
 } catch (err) {
   logger.error('[startup] Database migration failed:', err);
 }

@@ -15,6 +15,69 @@ const SOURCE_COLORS = [
   '#4f46e5',
 ];
 
+const TOPIC_RULES = {
+  ai: ['ai', 'artificial intelligence', 'llm', 'machine learning'],
+  security: ['security', 'cybersecurity', 'vulnerability', 'exploit', 'hack'],
+  cloud: ['cloud', 'aws', 'azure', 'gcp', 'kubernetes'],
+  mobile: ['iphone', 'android', 'ios', 'mobile', 'smartphone'],
+  dev: ['developer', 'javascript', 'python', 'api', 'database', 'open source'],
+  startup: ['startup', 'funding', 'venture', 'founder', 'series a', 'series b'],
+};
+
+const SOURCE_TRUST = {
+  TechCrunch: 'High trust',
+  'The Verge': 'High trust',
+  Wired: 'High trust',
+  'Ars Technica': 'High trust',
+  VentureBeat: 'High trust',
+  Engadget: 'Medium trust',
+  Gizmodo: 'Medium trust',
+  CNET: 'Medium trust',
+  ZDNet: 'Medium trust',
+  InfoQ: 'Medium trust',
+  DZone: 'Medium trust',
+  Mashable: 'Medium trust',
+  'The Next Web': 'Medium trust',
+  Techradar: 'Medium trust',
+};
+
+function extractTopics(article) {
+  const text = `${article?.title || ''} ${article?.description || ''}`.toLowerCase();
+  const matched = [];
+  Object.entries(TOPIC_RULES).forEach(([topic, keywords]) => {
+    if (keywords.some((kw) => text.includes(kw))) {
+      matched.push(topic);
+    }
+  });
+  return matched;
+}
+
+function getPreferredTopics() {
+  try {
+    const raw = localStorage.getItem('externalNewsTopicPrefs');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function bumpTopicPreference(topics) {
+  if (!Array.isArray(topics) || topics.length === 0) return;
+  const prefs = getPreferredTopics();
+  topics.forEach((topic) => {
+    prefs[topic] = (prefs[topic] || 0) + 1;
+  });
+  localStorage.setItem('externalNewsTopicPrefs', JSON.stringify(prefs));
+}
+
+function trackExternalEvent(event) {
+  fetch('/api/external-news/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  }).catch(() => {});
+}
+
 function getSourceColor(source) {
   const text = source || 'Unknown';
   let hash = 0;
@@ -97,7 +160,21 @@ export default function TechNewsFeed() {
 
       const data = await res.json();
       console.log('[TechNewsFeed] articles received:', data.articles?.length ?? 0);
-      setArticles(Array.isArray(data.articles) ? data.articles : []);
+      const incoming = Array.isArray(data.articles) ? data.articles : [];
+      const prefs = getPreferredTopics();
+
+      const personalized = [...incoming].sort((a, b) => {
+        const aTopics = extractTopics(a);
+        const bTopics = extractTopics(b);
+        const aScore = aTopics.reduce((sum, topic) => sum + (prefs[topic] || 0), 0);
+        const bScore = bTopics.reduce((sum, topic) => sum + (prefs[topic] || 0), 0);
+
+        if (aScore !== bScore) return bScore - aScore;
+        if ((a.pinned ? 1 : 0) !== (b.pinned ? 1 : 0)) return a.pinned ? -1 : 1;
+        return String(b.published_at).localeCompare(String(a.published_at));
+      });
+
+      setArticles(personalized);
       console.log('[TechNewsFeed] state -> populated');
     } catch (err) {
       console.error('[TechNewsFeed] fetch failed:', err);
@@ -123,7 +200,18 @@ export default function TechNewsFeed() {
     setRefreshTick((tick) => tick + 1);
   };
 
-  const openDetails = (id, url) => {
+  const openDetails = (article) => {
+    const topics = extractTopics(article);
+    bumpTopicPreference(topics);
+    trackExternalEvent({
+      eventType: 'card_click',
+      articleId: article?.id,
+      source: article?.source,
+      topic: topics[0] || null,
+    });
+
+    const id = article?.id;
+    const url = article?.url;
     if (id !== undefined && id !== null && String(id).trim() !== '') {
       navigate(`/news/external/${encodeURIComponent(String(id))}`);
       return;
@@ -137,6 +225,16 @@ export default function TechNewsFeed() {
         <div>
           <h2 className="tech-news-heading">Latest Tech News</h2>
           <p className="tech-news-subheading">Curated from trusted sources · Updated every 20 minutes</p>
+          <div className="mt-2 flex items-center gap-2">
+            <button type="button" className="tech-news-inline-action" onClick={() => navigate('/news/digests')} aria-label="Open digests">
+              <span aria-hidden="true">🧭</span>
+              <span className="icon-label">Digests</span>
+            </button>
+            <button type="button" className="tech-news-inline-action" onClick={() => navigate('/news/alerts')} aria-label="Open alerts settings">
+              <span aria-hidden="true">🔔</span>
+              <span className="icon-label">Alerts</span>
+            </button>
+          </div>
         </div>
         <button
           type="button"
@@ -188,11 +286,11 @@ export default function TechNewsFeed() {
                 role="link"
                 tabIndex={0}
                 aria-label={article.title}
-                onClick={() => openDetails(article.id, article.url)}
+                onClick={() => openDetails(article)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    openDetails(article.id, article.url);
+                    openDetails(article);
                   }
                 }}
               >
@@ -224,6 +322,9 @@ export default function TechNewsFeed() {
                   <span className="tech-news-source" style={{ backgroundColor: `${sourceColor}22`, color: sourceColor }}>
                     {article.source || 'Unknown source'}
                   </span>
+                  <span className="tech-news-trust" aria-label={`Trust score ${article.trust_score || SOURCE_TRUST[article.source] || 'Unverified'}`}>
+                    {article.trust_score || SOURCE_TRUST[article.source] || 'Unverified'}
+                  </span>
 
                   <h3 className="tech-news-title">{article.title}</h3>
 
@@ -242,7 +343,7 @@ export default function TechNewsFeed() {
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      openDetails(article.id, article.url);
+                      openDetails(article);
                     }}
                   >
                     <span aria-hidden="true">→</span>

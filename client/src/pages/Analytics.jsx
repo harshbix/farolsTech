@@ -18,6 +18,15 @@ export default function Analytics() {
     queryFn: () => api.get('/analytics/my-posts').then((r) => r.data),
   });
 
+  const {
+    data: externalData,
+    isLoading: externalLoading,
+    isError: externalError,
+  } = useQuery({
+    queryKey: ['analytics-external-news'],
+    queryFn: () => api.get('/analytics/external-news?days=7').then((r) => r.data),
+  });
+
   const maxViews = useMemo(() => {
     const views = data?.posts?.map((p) => p.views || 0) || [0];
     return Math.max(...views, 1);
@@ -59,6 +68,55 @@ export default function Analytics() {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="card p-4 mt-8">
+              <h2 className="text-xl font-display font-semibold mb-4">External News Funnel (7 Days)</h2>
+
+              {externalLoading && <p className="text-gray-400">Loading external metrics...</p>}
+              {externalError && !externalLoading && <p className="text-red-300">Failed to load external metrics.</p>}
+
+              {!externalLoading && !externalError && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
+                    <StatCard label="Card Clicks" value={externalData?.totals?.card_clicks || 0} />
+                    <StatCard label="Detail Views" value={externalData?.totals?.detail_views || 0} />
+                    <StatCard label="Read More" value={externalData?.totals?.read_more_clicks || 0} />
+                    <StatCard label="Bookmarks" value={externalData?.totals?.bookmark_adds || 0} />
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-lg font-display font-semibold mb-2">Top Sources</h3>
+                      <div className="space-y-2">
+                        {(externalData?.top_sources || []).map((row) => (
+                          <div key={row.source} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-200">{row.source}</span>
+                            <span className="text-gray-400">{row.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-display font-semibold mb-2">Top Topics</h3>
+                      <div className="space-y-2">
+                        {(externalData?.top_topics || []).map((row) => (
+                          <div key={row.topic} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-200">{row.topic}</span>
+                            <span className="text-gray-400">{row.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-sm text-gray-400">
+                    <p className="mb-1">Card → Detail: {(externalData?.rates?.card_to_detail || 0) * 100}%</p>
+                    <p className="mb-0">Detail → Read More: {(externalData?.rates?.detail_to_read_more || 0) * 100}%</p>
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}

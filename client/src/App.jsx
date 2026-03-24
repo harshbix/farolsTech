@@ -13,6 +13,7 @@ import Footer from './components/Footer.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import PageLoader from './components/PageLoader.jsx';
 import LoginModal from './components/LoginModal.jsx';
+import ScrollToTop from './components/ScrollToTop.jsx';
 import AppRoutes from './routes/AppRoutes.jsx';
 
 const queryClient = new QueryClient({
@@ -71,6 +72,7 @@ export default function App() {
       <HelmetProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
+            <ScrollToTop />
             <div className="min-h-screen flex flex-col bg-surface">
               <Navbar />
               <Suspense fallback={<PageLoader />}>

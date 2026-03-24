@@ -73,10 +73,27 @@ async function runFetchCycle(db) {
       console.log('[newsJob] Fetch complete — no articles passed filters.');
       return;
     }
-    const inserted = storeArticles(db, articles);
+
+    const blacklistedSources = new Set(
+      db
+        .prepare('SELECT source FROM external_news_source_rules WHERE blacklisted = 1')
+        .all()
+        .map((row) => String(row.source).toLowerCase())
+    );
+
+    const allowedArticles = articles.filter(
+      (article) => !blacklistedSources.has(String(article.source || '').toLowerCase())
+    );
+
+    if (allowedArticles.length === 0) {
+      console.log('[newsJob] All fetched articles were blocked by source blacklist rules.');
+      return;
+    }
+
+    const inserted = storeArticles(db, allowedArticles);
     console.log(
       `[newsJob] Cycle complete — ${inserted} new articles stored ` +
-      `(${articles.length} fetched and filtered).`
+      `(${allowedArticles.length} fetched and filtered).`
     );
   } catch (err) {
     // Error is logged but never thrown — app continues running

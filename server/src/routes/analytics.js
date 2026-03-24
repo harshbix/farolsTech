@@ -140,4 +140,64 @@ router.get('/analytics/my-posts', requireAuth, (req, res, next) => {
   }
 });
 
+router.get('/analytics/external-news', requireAuth, (req, res, next) => {
+  try {
+    const db = getDb();
+    const days = Math.max(1, Math.min(30, Number.parseInt(req.query.days || '7', 10) || 7));
+    const sinceEpoch = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
+
+    const totals = db.prepare(`
+      SELECT
+        SUM(CASE WHEN event_type = 'card_click' THEN 1 ELSE 0 END) AS card_clicks,
+        SUM(CASE WHEN event_type = 'detail_view' THEN 1 ELSE 0 END) AS detail_views,
+        SUM(CASE WHEN event_type = 'read_more' THEN 1 ELSE 0 END) AS read_more_clicks,
+        SUM(CASE WHEN event_type = 'bookmark_add' THEN 1 ELSE 0 END) AS bookmark_adds
+      FROM external_news_events
+      WHERE created_at >= ?
+    `).get(sinceEpoch);
+
+    const topSources = db.prepare(`
+      SELECT source, COUNT(*) AS count
+      FROM external_news_events
+      WHERE created_at >= ?
+        AND source IS NOT NULL
+      GROUP BY source
+      ORDER BY count DESC
+      LIMIT 10
+    `).all(sinceEpoch);
+
+    const topTopics = db.prepare(`
+      SELECT topic, COUNT(*) AS count
+      FROM external_news_events
+      WHERE created_at >= ?
+        AND topic IS NOT NULL
+      GROUP BY topic
+      ORDER BY count DESC
+      LIMIT 10
+    `).all(sinceEpoch);
+
+    const cardClicks = Number(totals?.card_clicks || 0);
+    const detailViews = Number(totals?.detail_views || 0);
+    const readMoreClicks = Number(totals?.read_more_clicks || 0);
+
+    res.json({
+      period_days: days,
+      totals: {
+        card_clicks: cardClicks,
+        detail_views: detailViews,
+        read_more_clicks: readMoreClicks,
+        bookmark_adds: Number(totals?.bookmark_adds || 0),
+      },
+      rates: {
+        card_to_detail: cardClicks > 0 ? Number((detailViews / cardClicks).toFixed(3)) : 0,
+        detail_to_read_more: detailViews > 0 ? Number((readMoreClicks / detailViews).toFixed(3)) : 0,
+      },
+      top_sources: topSources,
+      top_topics: topTopics,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

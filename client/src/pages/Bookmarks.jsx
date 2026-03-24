@@ -40,9 +40,19 @@ export default function Bookmarks() {
                     className="w-20 h-16 rounded object-cover flex-shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <Link to={`/posts/${bm.slug}`} className="font-medium hover:text-brand-300 line-clamp-2 block">
+                  <Link
+                    to={bm.sourceType === 'api'
+                      ? `/news/external/${encodeURIComponent(String(bm.id))}`
+                      : `/posts/${bm.slug}`}
+                    className="font-medium hover:text-brand-300 line-clamp-2 block"
+                  >
                     {bm.title}
                   </Link>
+                  {bm.sourceType === 'api' && (
+                    <span className="inline-flex items-center rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-cyan-300 mt-2">
+                      External
+                    </span>
+                  )}
                   <p className="text-xs text-gray-500 mt-1">{bm.author_name || bm.author_username}</p>
                 </div>
                 <button

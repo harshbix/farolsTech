@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import SEOHead from '../components/SEOHead.jsx';
+import api from '../api/client.js';
+import { useAuthStore, useUIStore } from '../store/index.js';
 
 const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
@@ -37,8 +40,47 @@ function sourceInitials(source) {
     .join('');
 }
 
+const TOPIC_RULES = {
+  ai: ['ai', 'artificial intelligence', 'llm', 'machine learning'],
+  security: ['security', 'cybersecurity', 'vulnerability', 'exploit', 'hack'],
+  cloud: ['cloud', 'aws', 'azure', 'gcp', 'kubernetes'],
+  mobile: ['iphone', 'android', 'ios', 'mobile', 'smartphone'],
+  dev: ['developer', 'javascript', 'python', 'api', 'database', 'open source'],
+  startup: ['startup', 'funding', 'venture', 'founder', 'series a', 'series b'],
+};
+
+function extractTopics(article) {
+  const text = `${article?.title || ''} ${article?.description || ''}`.toLowerCase();
+  const matched = [];
+  Object.entries(TOPIC_RULES).forEach(([topic, keywords]) => {
+    if (keywords.some((kw) => text.includes(kw))) matched.push(topic);
+  });
+  return matched;
+}
+
+function estimateReadMinutes(article) {
+  const text = `${article?.title || ''} ${article?.description || ''}`.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  return Math.max(1, Math.ceil(words / 180));
+}
+
+function trackExternalEvent(event) {
+  fetch('/api/external-news/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  }).catch(() => {});
+}
+
 export default function ExternalNewsDetail() {
   const { id } = useParams();
+  const { isAuthenticated } = useAuthStore();
+  const { openLoginModal } = useUIStore();
+  const [readerMode, setReaderMode] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarkPending, setIsBookmarkPending] = useState(false);
+  const [savedProgress, setSavedProgress] = useState(0);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['external-news-detail', id],
@@ -75,16 +117,158 @@ export default function ExternalNewsDetail() {
     const items = Array.isArray(relatedData?.articles) ? relatedData.articles : [];
     if (!article) return [];
 
-    const sameSource = items
+    const baseTopics = new Set(extractTopics(article));
+    const scored = items
       .filter((item) => String(item.id) !== String(article.id))
-      .filter((item) => item.source === article.source);
+      .map((item) => {
+        const itemTopics = extractTopics(item);
+        const overlap = itemTopics.filter((t) => baseTopics.has(t)).length;
+        const sourceBoost = item.source === article.source ? 1 : 0;
+        return { item, score: overlap * 3 + sourceBoost };
+      })
+      .sort((a, b) => b.score - a.score || String(b.item.published_at).localeCompare(String(a.item.published_at)));
 
-    const fallback = items
-      .filter((item) => String(item.id) !== String(article.id))
-      .filter((item) => item.source !== article.source);
-
-    return [...sameSource, ...fallback].slice(0, 6);
+    return scored.slice(0, 6).map((entry) => entry.item);
   }, [article, relatedData?.articles]);
+
+  const readMinutes = useMemo(() => estimateReadMinutes(article), [article]);
+
+  useEffect(() => {
+    if (!id) return;
+    const storedProgress = Number(localStorage.getItem(`externalNewsProgress:${id}`) || 0);
+    setSavedProgress(Number.isFinite(storedProgress) ? storedProgress : 0);
+
+    if (isAuthenticated) {
+      api
+        .get('/bookmarks?limit=200')
+        .then((res) => {
+          const rows = Array.isArray(res?.data?.bookmarks) ? res.data.bookmarks : [];
+          setIsBookmarked(rows.some((item) => String(item.id) === String(id)));
+        })
+        .catch(() => setIsBookmarked(false));
+      return;
+    }
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('externalNewsBookmarks') || '[]');
+      setIsBookmarked(saved.some((item) => String(item.id) === String(id)));
+    } catch {
+      setIsBookmarked(false);
+    }
+  }, [id, isAuthenticated]);
+
+  useEffect(() => {
+    if (!article || !id) return;
+    const topics = extractTopics(article);
+    trackExternalEvent({
+      eventType: 'detail_view',
+      articleId: article.id,
+      source: article.source,
+      topic: topics[0] || null,
+    });
+  }, [article, id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const handler = () => {
+      const doc = document.documentElement;
+      const scrollTop = doc.scrollTop || document.body.scrollTop;
+      const height = (doc.scrollHeight - doc.clientHeight) || 1;
+      const progress = Math.max(0, Math.min(100, Math.round((scrollTop / height) * 100)));
+      setScrollProgress(progress);
+      localStorage.setItem(`externalNewsProgress:${id}`, String(progress));
+    };
+
+    window.addEventListener('scroll', handler, { passive: true });
+    handler();
+    return () => window.removeEventListener('scroll', handler);
+  }, [id]);
+
+  const toggleBookmark = async () => {
+    if (!article || isBookmarkPending) return;
+
+    const nextBookmarked = !isBookmarked;
+
+    if (isAuthenticated) {
+      setIsBookmarkPending(true);
+      setIsBookmarked(nextBookmarked);
+      try {
+        if (nextBookmarked) {
+          await api.post('/bookmarks', { post_id: article.id });
+          trackExternalEvent({ eventType: 'bookmark_add', articleId: article.id, source: article.source });
+          toast.success('Saved to bookmarks');
+        } else {
+          await api.delete(`/bookmarks/${encodeURIComponent(String(article.id))}`);
+          trackExternalEvent({ eventType: 'bookmark_remove', articleId: article.id, source: article.source });
+          toast.success('Removed from bookmarks');
+        }
+      } catch (err) {
+        setIsBookmarked(!nextBookmarked);
+        const status = err?.response?.status;
+        if (status === 401) {
+          openLoginModal();
+          return;
+        }
+        toast.error('Unable to update bookmark right now');
+      } finally {
+        setIsBookmarkPending(false);
+      }
+      return;
+    }
+
+    const key = 'externalNewsBookmarks';
+    let saved = [];
+    try {
+      saved = JSON.parse(localStorage.getItem(key) || '[]');
+    } catch {
+      saved = [];
+    }
+
+    const exists = saved.some((item) => String(item.id) === String(article.id));
+    let next = saved;
+
+    if (exists) {
+      next = saved.filter((item) => String(item.id) !== String(article.id));
+      trackExternalEvent({ eventType: 'bookmark_remove', articleId: article.id, source: article.source });
+      setIsBookmarked(false);
+      toast.success('Removed local bookmark');
+    } else {
+      next = [
+        {
+          id: article.id,
+          title: article.title,
+          source: article.source,
+          published_at: article.published_at,
+          saved_at: Date.now(),
+        },
+        ...saved,
+      ].slice(0, 100);
+      trackExternalEvent({ eventType: 'bookmark_add', articleId: article.id, source: article.source });
+      setIsBookmarked(true);
+      toast.success('Saved locally. Login to sync to your account.');
+    }
+
+    localStorage.setItem(key, JSON.stringify(next));
+  };
+
+  const handleReadMore = () => {
+    if (!article?.url) return;
+    const topics = extractTopics(article);
+    trackExternalEvent({
+      eventType: 'read_more',
+      articleId: article.id,
+      source: article.source,
+      topic: topics[0] || null,
+    });
+    window.open(article.url, '_blank', 'noopener,noreferrer');
+  };
+
+  const continueReading = () => {
+    const ratio = Math.max(0, Math.min(100, savedProgress)) / 100;
+    const doc = document.documentElement;
+    const maxScroll = (doc.scrollHeight - doc.clientHeight) || 0;
+    window.scrollTo({ top: Math.round(maxScroll * ratio), behavior: 'smooth' });
+  };
 
   return (
     <>
@@ -93,7 +277,11 @@ export default function ExternalNewsDetail() {
         description={article?.description || 'Read external tech news details on Farols'}
       />
 
-      <section className="max-w-4xl mx-auto px-4 py-10" aria-label="External tech news details">
+      <div className="reading-progress-shell" aria-hidden="true">
+        <div className="reading-progress-fill" style={{ width: `${scrollProgress}%` }} />
+      </div>
+
+      <section className={`max-w-4xl mx-auto px-4 py-10 ${readerMode ? 'reader-mode' : ''}`} aria-label="External tech news details">
         <div className="mb-6 flex items-center justify-between gap-3">
           <Link to="/" className="tech-news-back-link" aria-label="Back to home">
             <span aria-hidden="true">←</span>
@@ -146,7 +334,10 @@ export default function ExternalNewsDetail() {
               <div className="p-6 md:p-8">
                 <div className="mb-4 flex flex-wrap items-center gap-3">
                   <span className="tech-news-source">{article.source || 'Unknown source'}</span>
+                  <span className="tech-news-trust">{article.trust_score || 'Unverified'}</span>
                   <time className="tech-news-date" dateTime={article.published_at}>{publishedLabel}</time>
+                  <span className="tech-news-date">{readMinutes} min read</span>
+                  <span className="tech-news-date">{scrollProgress}% read</span>
                 </div>
 
                 <h1 className="text-3xl md:text-4xl font-display font-bold leading-tight mb-4">
@@ -158,16 +349,15 @@ export default function ExternalNewsDetail() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <a
-                    href={article.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
                     className="btn-primary"
                     aria-label="Open original source website in a new tab"
+                    onClick={handleReadMore}
                   >
                     <span aria-hidden="true">↗</span>
                     <span className="icon-label">Source</span>
-                  </a>
+                  </button>
                   <button
                     type="button"
                     className="btn-ghost"
@@ -178,6 +368,38 @@ export default function ExternalNewsDetail() {
                     <span aria-hidden="true">↻</span>
                     <span className="icon-label">{isFetching ? 'Loading' : 'Refresh'}</span>
                   </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => setReaderMode((prev) => !prev)}
+                    aria-label="Toggle reader mode"
+                  >
+                    <span aria-hidden="true">🧾</span>
+                    <span className="icon-label">{readerMode ? 'Default' : 'Reader'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={toggleBookmark}
+                    aria-label={isBookmarked ? 'Remove bookmark' : 'Save bookmark'}
+                    disabled={isBookmarkPending}
+                  >
+                    <span aria-hidden="true">{isBookmarked ? '★' : '☆'}</span>
+                    <span className="icon-label">
+                      {isBookmarkPending ? 'Saving' : isBookmarked ? 'Saved' : 'Save'}
+                    </span>
+                  </button>
+                  {savedProgress > 5 && savedProgress < 100 && (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={continueReading}
+                      aria-label={`Continue reading from ${savedProgress}%`}
+                    >
+                      <span aria-hidden="true">↺</span>
+                      <span className="icon-label">Continue {savedProgress}%</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </article>

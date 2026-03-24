@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuthStore, useUIStore } from '../store/index.js';
 import api from '../api/client.js';
@@ -26,6 +26,16 @@ export default function Navbar() {
     setLanguage(lang);
     i18n.changeLanguage(lang);
   }
+
+  const { data: bookmarksData } = useQuery({
+    queryKey: ['bookmarks', 'navbar-count'],
+    enabled: isAuthenticated,
+    queryFn: () => api.get('/bookmarks?limit=100').then((res) => res.data),
+  });
+
+  const bookmarkCount = Array.isArray(bookmarksData?.bookmarks)
+    ? bookmarksData.bookmarks.length
+    : 0;
 
   const isAdmin = isAuthenticated && user?.role === 'admin';
 
@@ -55,7 +65,6 @@ export default function Navbar() {
             { to: '/',          label: t('home') },
             { to: '/search',    label: t('search') },
             { to: '/feed',      label: 'For You' },
-            { to: '/bookmarks', label: t('bookmarks') },
           ].map(({ to, label }) => (
             <NavLink
               key={to}
@@ -69,6 +78,21 @@ export default function Navbar() {
               {label}
             </NavLink>
           ))}
+          <NavLink
+            to="/bookmarks"
+            className={({ isActive }) =>
+              `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                isActive ? 'bg-brand-600/20 text-brand-300' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`
+            }
+          >
+            <span>{t('bookmarks')}</span>
+            {isAuthenticated && bookmarkCount > 0 && (
+              <span className="inline-flex min-w-5 h-5 px-1 items-center justify-center rounded-full bg-brand-500/25 text-brand-200 text-[11px] leading-none font-semibold">
+                {bookmarkCount > 99 ? '99+' : bookmarkCount}
+              </span>
+            )}
+          </NavLink>
         </div>
 
         {/* Right controls */}
