@@ -41,7 +41,7 @@ function FeaturedPost({ post }) {
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-3xl md:text-4xl font-display font-bold text-[rgb(var(--text-primary))] group-hover:text-brand-400 transition-colors line-clamp-3">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-[rgb(var(--text-primary))] group-hover:text-brand-400 transition-colors line-clamp-3">
           {post.title}
         </h2>
         {post.excerpt && (
@@ -73,7 +73,7 @@ export default function Home() {
         <main className="bg-[rgb(var(--surface-bg))] min-h-screen">
         
         {/* Hero Section */}
-        <section className="relative py-16 sm:py-20 md:py-28 border-b border-surface-border">
+        <section className="relative py-12 sm:py-20 md:py-28 border-b border-surface-border overflow-hidden">
           <div className="absolute inset-0 -z-10 opacity-5">
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-brand-500 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-brand-400 rounded-full blur-3xl"></div>
@@ -84,16 +84,16 @@ export default function Home() {
               <span className="inline-block font-display font-semibold text-brand-400 text-sm tracking-widest uppercase mb-4">
                 Breaking News & Analysis
               </span>
-              <h1 className="text-5xl sm:text-6xl md:text-7xl font-display font-bold text-[rgb(var(--text-primary))] tracking-tight mb-6">
+              <h1 className="text-4xl sm:text-6xl md:text-7xl font-display font-bold text-[rgb(var(--text-primary))] tracking-tight mb-5 sm:mb-6">
                 Habari Tanzania!
               </h1>
-              <p className="text-lg sm:text-xl text-[rgb(var(--text-secondary))] max-w-3xl mx-auto mb-8 leading-relaxed">
+              <p className="text-base sm:text-xl text-[rgb(var(--text-secondary))] max-w-3xl mx-auto mb-7 sm:mb-8 leading-relaxed px-1">
                 In-depth journalism and stories that matter. Your trusted source for East African news, analysis, and perspectives.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md mx-auto sm:max-w-none">
                 <Link 
                   to="/search" 
-                  className="px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-full transition-all duration-200 transform hover:scale-105"
+                  className="w-full sm:w-auto px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-full transition-all duration-200 transform hover:scale-105"
                 >
                   Explore Stories
                 </Link>
@@ -106,12 +106,12 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 py-12 sm:py-20">
 
           {/* Featured Post */}
           {featuredPost && !trending.isLoading && (
             <section className="mb-20">
-              <div className="bg-surface-raised rounded-2xl p-8 md:p-12 border border-surface-border">
+              <div className="bg-surface-raised rounded-2xl p-4 sm:p-8 md:p-12 border border-surface-border">
                 <FeaturedPost post={featuredPost} />
               </div>
             </section>
@@ -130,7 +130,7 @@ export default function Home() {
                   View All →
                 </Link>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {trendingRest?.map((post, idx) => (
                   <PostCard key={post.id} post={post} />
                 ))}
@@ -146,12 +146,12 @@ export default function Home() {
                   {t('categories')}
                 </h2>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                 {cats.data.map(cat => (
                   <Link 
                     key={cat.id} 
                     to={`/category/${cat.slug}`}
-                    className="group relative bg-surface-raised border border-surface-border hover:border-brand-500 rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1"
+                    className="group relative bg-surface-raised border border-surface-border hover:border-brand-500 rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-lg hover:-translate-y-1"
                   >
                     <div className="text-center">
                       <div className="w-12 h-12 mx-auto mb-3 bg-brand-500/10 rounded-full flex items-center justify-center group-hover:bg-brand-500/20 transition-colors">
@@ -182,7 +182,7 @@ export default function Home() {
                 Browse All →
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {latest.isLoading
                 ? Array(8).fill(0).map((_, i) => <SkeletonCard key={i} />)
                 : latest.data?.posts?.map(post => <PostCard key={post.id} post={post} />)
@@ -202,13 +202,13 @@ export default function Home() {
 
           {/* External Tech News */}
           <section className="mb-16 border-t border-surface-border pt-12">
-            <div className="bg-surface-raised/40 rounded-2xl p-4 sm:p-6 md:p-8 border border-surface-border">
+            <div className="bg-surface-raised/40 rounded-2xl p-3 sm:p-6 md:p-8 border border-surface-border">
               <TechNewsFeed />
             </div>
           </section>
 
           {/* CTA Section */}
-          <section className="mt-24 bg-gradient-to-r from-brand-600/10 to-brand-500/10 border border-brand-500/20 rounded-2xl p-8 md:p-12 text-center">
+          <section className="mt-16 sm:mt-24 bg-gradient-to-r from-brand-600/10 to-brand-500/10 border border-brand-500/20 rounded-2xl p-5 sm:p-8 md:p-12 text-center">
             <h2 className="text-2xl md:text-3xl font-display font-bold text-[rgb(var(--text-primary))] mb-4">
               Stay Informed
             </h2>
@@ -221,7 +221,7 @@ export default function Home() {
                 placeholder="Enter your email" 
                 className="flex-1 px-4 py-3 bg-surface-raised border border-surface-border rounded-full focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-[rgb(var(--text-primary))] placeholder-[rgb(var(--text-secondary))]"
               />
-              <button className="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-full transition-colors duration-200 whitespace-nowrap">
+              <button className="w-full sm:w-auto px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-full transition-colors duration-200 whitespace-nowrap">
                 Subscribe
               </button>
             </div>

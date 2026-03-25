@@ -57,6 +57,7 @@
     @apply bg-surface font-sans text-base;
     color: rgb(var(--text-primary));
     line-height: 1.6;
+    overflow-x: hidden;
   }
 
   h1 {
@@ -91,6 +92,60 @@
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
+  }
+
+  /* Prevent fixed mobile dock overlap and anchor clipping */
+  main,
+  section,
+  article {
+    scroll-margin-top: 88px;
+  }
+
+  @media (max-width: 767px) {
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    h1 {
+      font-size: clamp(1.9rem, 7vw, 2.8rem);
+      line-height: 1.1;
+    }
+
+    h2 {
+      font-size: clamp(1.45rem, 5.4vw, 2.05rem);
+      line-height: 1.2;
+      margin-top: 1.5rem;
+      margin-bottom: 0.85rem;
+    }
+
+    h3 {
+      font-size: clamp(1.18rem, 4.2vw, 1.6rem);
+      margin-top: 1.2rem;
+      margin-bottom: 0.65rem;
+    }
+
+    p {
+      line-height: 1.68;
+    }
+
+    button,
+    a.btn,
+    .btn,
+    .btn-primary,
+    .btn-ghost,
+    .input {
+      min-height: 42px;
+    }
+  }
+
+  @media (max-width: 399px) {
+    h1 {
+      font-size: clamp(1.7rem, 8.5vw, 2.2rem);
+    }
+
+    p {
+      font-size: 0.95rem;
+    }
   }
 
   /* Custom scrollbar */
@@ -172,7 +227,7 @@
   }
 
   .newsroom-title {
-    @apply font-display font-semibold text-xl lg:text-2xl text-[rgb(var(--text-primary))] leading-tight mb-2 transition-colors;
+    @apply font-display font-semibold text-lg sm:text-xl lg:text-2xl text-[rgb(var(--text-primary))] leading-tight mb-2 transition-colors;
   }
   .post-card:hover .newsroom-title {
     @apply text-brand-500;
@@ -186,6 +241,8 @@
   .article-content {
     @apply max-w-content leading-prose;
     color: rgb(var(--text-primary));
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   .article-content h1 {
@@ -249,6 +306,31 @@
 
   .article-content pre {
     @apply bg-surface rounded-xl p-6 overflow-x-auto my-6 border border-surface-border;
+  }
+
+  @media (max-width: 767px) {
+    .article-content {
+      font-size: 0.98rem;
+    }
+
+    .article-content h1 {
+      font-size: clamp(1.9rem, 8vw, 2.5rem);
+      margin-top: 1.5rem;
+    }
+
+    .article-content h2 {
+      font-size: clamp(1.45rem, 6vw, 1.95rem);
+      margin-top: 1.2rem;
+    }
+
+    .article-content p {
+      margin-bottom: 1rem;
+    }
+
+    .article-content pre {
+      padding: 0.95rem;
+      border-radius: 0.85rem;
+    }
   }
 
   .article-content mark {

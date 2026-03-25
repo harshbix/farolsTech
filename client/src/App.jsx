@@ -73,7 +73,7 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <ScrollToTop />
-            <div className="min-h-screen flex flex-col bg-surface">
+            <div className="min-h-screen flex flex-col bg-surface pb-[calc(6.75rem+env(safe-area-inset-bottom))] md:pb-0">
               <Navbar />
               <Suspense fallback={<PageLoader />}>
                 <AppRoutes />
@@ -82,7 +82,10 @@ export default function App() {
               <Footer />
             </div>
             <Toaster
-              position="bottom-right"
+              position="bottom-center"
+              containerStyle={{
+                bottom: 'calc(7rem + env(safe-area-inset-bottom))',
+              }}
               toastOptions={{
                 style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' },
               }}
