@@ -85,7 +85,7 @@ export default function Home() {
                 Breaking News & Analysis
               </span>
               <h1 className="text-5xl sm:text-6xl md:text-7xl font-display font-bold text-[rgb(var(--text-primary))] tracking-tight mb-6">
-                Habari za Tanzania.
+                Habari Tanzania!
               </h1>
               <p className="text-lg sm:text-xl text-[rgb(var(--text-secondary))] max-w-3xl mx-auto mb-8 leading-relaxed">
                 In-depth journalism and stories that matter. Your trusted source for East African news, analysis, and perspectives.
