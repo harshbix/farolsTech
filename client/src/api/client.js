@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/index.js';
 
 const TOKEN_KEY = 'accessToken';
-const PROD_API_FALLBACK = '/api/v1';
+const PROD_API_FALLBACK = 'https://farols-tech-server.vercel.app/api';
 
 function normalizeApiBase(url) {
   if (!url || typeof url !== 'string') {
@@ -21,7 +21,7 @@ function resolveApiBaseUrl() {
     return PROD_API_FALLBACK;
   }
 
-  return '/api/v1';
+  return '/api';
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
@@ -29,6 +29,7 @@ export const API_BASE_URL = resolveApiBaseUrl();
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 15000,
 });
 
 let accessToken = localStorage.getItem(TOKEN_KEY);
@@ -58,8 +59,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    const original = error?.config;
+    if (error?.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       try {
         // Prevent multiple simultaneous refresh attempts
@@ -85,6 +86,13 @@ api.interceptors.response.use(
         }
       }
     }
+
+    const fallbackMessage = 'Request failed. Please try again.';
+    const normalizedMessage =
+      error?.response?.data?.error || error?.response?.data?.message || error?.message || fallbackMessage;
+
+    // Attach a stable message shape so UI handlers can fail gracefully.
+    error.friendlyMessage = normalizedMessage;
     return Promise.reject(error);
   }
 );

@@ -30,6 +30,9 @@ import { startNewsJob } from './cron/newsJob.js';
 import { startScheduledPublisher } from './cron/scheduledPublisher.js';
 import { registerApiRoutes } from './routes/registerApiRoutes.js';
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_VERCEL_RUNTIME = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_URL);
+
 let helmetMiddleware = (_req, _res, next) => next();
 try {
   const helmetModule = await import('helmet');
@@ -46,9 +49,11 @@ if (!process.env.NEWS_API_KEY) {
 }
 
 // Ensure data directory exists
-mkdirSync(join(__dirname, '..', 'data'), { recursive: true });
-mkdirSync(join(__dirname, '..', 'uploads', 'posts'), { recursive: true });
-mkdirSync(join(__dirname, '..', 'uploads', 'avatars'), { recursive: true });
+if (!IS_VERCEL_RUNTIME) {
+  mkdirSync(join(__dirname, '..', 'data'), { recursive: true });
+  mkdirSync(join(__dirname, '..', 'uploads', 'posts'), { recursive: true });
+  mkdirSync(join(__dirname, '..', 'uploads', 'avatars'), { recursive: true });
+}
 
 // Run DB migrations on startup
 const db = getDb();
@@ -94,13 +99,22 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3001;
 app.set('db', db);
+const SHOULD_RUN_PERSISTENT_SERVICES = !IS_PRODUCTION && process.env.NODE_ENV !== 'test' && !IS_VERCEL_RUNTIME;
 
-const explicitAllowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://farols-tech.vercel.app',
+];
+
+const explicitAllowedOrigins = (process.env.CLIENT_ORIGIN || defaultAllowedOrigins.join(','))
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const allowVercelPreviewOrigins = process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true';
+const allowVercelPreviewOrigins = process.env.ALLOW_VERCEL_PREVIEW_ORIGINS
+  ? process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true'
+  : IS_PRODUCTION;
 
 const authRouteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -156,7 +170,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ── HTTP + WebSocket Server ────────────────────────────────────
-const server = createServer(app);
+const server = SHOULD_RUN_PERSISTENT_SERVICES ? createServer(app) : null;
 let wsServer = null;
 let trendingJob = null;
 let newsJob = null;
@@ -166,7 +180,7 @@ let isShuttingDown = false;
 const isTestEnv = process.env.NODE_ENV === 'test';
 
 // Initialize servers
-if (!isTestEnv) {
+if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES && server) {
   wsServer = setupWebSocket(server);
   trendingJob = startTrendingJob();
   newsJob = startNewsJob(db);
@@ -174,7 +188,7 @@ if (!isTestEnv) {
 }
 
 // ── Server Error Handler ───────────────────────────────────────
-if (!isTestEnv) {
+if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES && server) {
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       logger.error(`Port ${PORT} is already in use. Retrying in 3 seconds...`);
@@ -200,9 +214,11 @@ function gracefulShutdown(signal) {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
   
   // Stop accepting new connections
-  server.close(() => {
-    logger.info('HTTP server closed');
-  });
+  if (server) {
+    server.close(() => {
+      logger.info('HTTP server closed');
+    });
+  }
 
   // Close WebSocket connections
   if (wsServer) {
@@ -263,13 +279,13 @@ function gracefulShutdown(signal) {
 }
 
 // Handle shutdown signals
-if (!isTestEnv) {
+if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES) {
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 // Handle uncaught errors
-if (!isTestEnv) {
+if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES) {
   process.on('uncaughtException', (err) => {
     logger.error('Uncaught Exception:', err);
     if (!isShuttingDown) {
@@ -278,14 +294,14 @@ if (!isTestEnv) {
   });
 }
 
-if (!isTestEnv) {
+if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES) {
   process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   });
 }
 
 // ── Start Server ───────────────────────────────────────────────
-if (!isTestEnv) {
+if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES && server) {
   server.listen(PORT, () => {
     logger.info(`Farols API running on http://localhost:${PORT}`);
   });

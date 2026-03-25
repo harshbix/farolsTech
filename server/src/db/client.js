@@ -6,8 +6,11 @@ import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const IS_VERCEL_RUNTIME = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_URL);
 
-const DB_PATH = process.env.DB_PATH || join(__dirname, '..', '..', 'data', 'farols.db');
+const DB_PATH = process.env.DB_PATH || (IS_VERCEL_RUNTIME
+  ? '/tmp/farols.db'
+  : join(__dirname, '..', '..', 'data', 'farols.db'));
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin_farols';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@farols.local';
 const ADMIN_PASSWORD_SOURCE = process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD || '123456';
@@ -17,7 +20,11 @@ let db;
 export function getDb() {
   if (!db) {
     // Ensure custom DB_PATH directories (e.g. mounted persistent disks) exist.
-    mkdirSync(dirname(DB_PATH), { recursive: true });
+    try {
+      mkdirSync(dirname(DB_PATH), { recursive: true });
+    } catch (err) {
+      logger.warn(`Could not ensure DB directory for path ${DB_PATH}: ${err.message}`);
+    }
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
