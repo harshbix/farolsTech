@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/index.js';
 
 const TOKEN_KEY = 'accessToken';
-const PROD_API_FALLBACK = 'https://farols-tech-server.vercel.app/api/v1';
+const PROD_API_FALLBACK = '/api/v1';
 
 function normalizeApiBase(url) {
   if (!url || typeof url !== 'string') {

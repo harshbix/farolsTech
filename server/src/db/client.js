@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import { readFileSync } from 'fs';
+import { mkdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
@@ -16,6 +16,8 @@ let db;
 
 export function getDb() {
   if (!db) {
+    // Ensure custom DB_PATH directories (e.g. mounted persistent disks) exist.
+    mkdirSync(dirname(DB_PATH), { recursive: true });
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
