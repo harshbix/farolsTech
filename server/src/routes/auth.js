@@ -17,6 +17,18 @@ const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 15 * 60;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin_farols';
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const REFRESH_COOKIE_SAMESITE = process.env.REFRESH_COOKIE_SAMESITE
+  || (IS_PRODUCTION ? 'none' : 'lax');
+
+function resolveSameSite(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'strict') return 'Strict';
+  if (normalized === 'none') return 'None';
+  return 'Lax';
+}
+
+const COOKIE_SAMESITE = resolveSameSite(REFRESH_COOKIE_SAMESITE);
 
 // Helper to return minimal user object (no PII or system fields)
 function minimizeUser(user) {
@@ -49,8 +61,8 @@ function signRefresh(user) {
 function setRefreshCookie(res, refreshToken) {
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
+    secure: IS_PRODUCTION,
+    sameSite: COOKIE_SAMESITE,
     maxAge: REFRESH_EXP_DAYS * 24 * 60 * 60 * 1000,
   });
 }
@@ -327,8 +339,8 @@ router.post('/logout', (req, res, next) => {
     }
     res.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
+      secure: IS_PRODUCTION,
+      sameSite: COOKIE_SAMESITE,
     });
     res.json({ message: 'Logged out successfully' });
   } catch (err) {

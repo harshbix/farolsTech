@@ -95,6 +95,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 app.set('db', db);
 
+const explicitAllowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowVercelPreviewOrigins = process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true';
+
 const authRouteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -106,7 +113,21 @@ const authRouteLimiter = rateLimit({
 // ── Global Middleware ──────────────────────────────────────────
 app.use(helmetMiddleware);
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (explicitAllowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    if (allowVercelPreviewOrigins && /\.vercel\.app$/i.test(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use('/api/auth', authRouteLimiter);

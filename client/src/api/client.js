@@ -2,9 +2,32 @@ import axios from 'axios';
 import { useAuthStore } from '../store/index.js';
 
 const TOKEN_KEY = 'accessToken';
+const PROD_API_FALLBACK = 'https://farols-tech-server.vercel.app/api/v1';
+
+function normalizeApiBase(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+  return url.replace(/\/+$/, '');
+}
+
+function resolveApiBaseUrl() {
+  const fromEnv = normalizeApiBase(import.meta.env.VITE_API_URL);
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  if (import.meta.env.PROD) {
+    return PROD_API_FALLBACK;
+  }
+
+  return '/api/v1';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
@@ -41,7 +64,7 @@ api.interceptors.response.use(
       try {
         // Prevent multiple simultaneous refresh attempts
         if (!tokenRefreshPromise) {
-          tokenRefreshPromise = axios.post(`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/refresh`, {}, { withCredentials: true });
+          tokenRefreshPromise = axios.post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
         }
         
         const { data } = await tokenRefreshPromise;
