@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import SEOHead from '../components/SEOHead.jsx';
+import api from '../api/client.js';
 
 const TOPIC_GROUPS = {
   ai: ['ai', 'artificial intelligence', 'llm', 'machine learning'],
@@ -27,9 +28,8 @@ export default function ExternalDigests() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['external-news-digests'],
     queryFn: async () => {
-      const res = await fetch('/api/external-news?limit=100', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Failed to load digests');
-      return res.json();
+      const response = await api.get('/external-news?limit=100');
+      return response.data;
     },
   });
 

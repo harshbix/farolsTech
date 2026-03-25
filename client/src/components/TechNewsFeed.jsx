@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../api/client.js';
 
 const LIMIT = 20;
 const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
@@ -71,11 +72,7 @@ function bumpTopicPreference(topics) {
 }
 
 function trackExternalEvent(event) {
-  fetch('/api/external-news/events', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(event),
-  }).catch(() => {});
+  api.post('/external-news/events', event).catch(() => {});
 }
 
 function getSourceColor(source) {
@@ -152,13 +149,8 @@ export default function TechNewsFeed() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/external-news?limit=${LIMIT}`, { cache: 'no-store' });
-      console.log('[TechNewsFeed] status:', res.status);
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-
-      const data = await res.json();
+      const { data, status } = await api.get(`/external-news?limit=${LIMIT}`);
+      console.log('[TechNewsFeed] status:', status);
       console.log('[TechNewsFeed] articles received:', data.articles?.length ?? 0);
       const incoming = Array.isArray(data.articles) ? data.articles : [];
       const prefs = getPreferredTopics();

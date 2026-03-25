@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import api from '../api/client.js';
+import { API_BASE_URL } from '../api/client.js';
 import { useAuthStore } from '../store/index.js';
 import SEOHead from '../components/SEOHead.jsx';
 import { getErrorMessage } from '../utils/errorFormatter.js';
@@ -87,7 +88,7 @@ export default function Login() {
             </button>
 
             <a
-              href={`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/google`}
+              href={`${API_BASE_URL}/auth/google`}
               className="btn-ghost w-full justify-center border border-surface-border"
             >
               Continue with Google

@@ -65,11 +65,7 @@ function estimateReadMinutes(article) {
 }
 
 function trackExternalEvent(event) {
-  fetch('/api/external-news/events', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(event),
-  }).catch(() => {});
+  api.post('/external-news/events', event).catch(() => {});
 }
 
 export default function ExternalNewsDetail() {
@@ -86,11 +82,8 @@ export default function ExternalNewsDetail() {
     queryKey: ['external-news-detail', id],
     enabled: !!id,
     queryFn: async () => {
-      const res = await fetch(`/api/external-news/${encodeURIComponent(id)}`, { cache: 'no-store' });
-      if (!res.ok) {
-        throw new Error(`Unable to load article (${res.status})`);
-      }
-      return res.json();
+      const response = await api.get(`/external-news/${encodeURIComponent(id)}`);
+      return response.data;
     },
   });
 
@@ -98,11 +91,8 @@ export default function ExternalNewsDetail() {
     queryKey: ['external-news-list-related', id],
     enabled: !!id,
     queryFn: async () => {
-      const res = await fetch('/api/external-news?limit=30', { cache: 'no-store' });
-      if (!res.ok) {
-        throw new Error('Unable to load related articles');
-      }
-      return res.json();
+      const response = await api.get('/external-news?limit=30');
+      return response.data;
     },
   });
 

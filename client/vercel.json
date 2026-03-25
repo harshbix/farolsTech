@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://farols-tech-server.vercel.app/api/$1"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "https://farols-tech-server.vercel.app/uploads/$1"
+    }
+  ]
+}
