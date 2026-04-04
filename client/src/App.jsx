@@ -91,7 +91,7 @@ export default function App() {
               }}
             />
           </BrowserRouter>
-          {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
         </QueryClientProvider>
       </HelmetProvider>
     </ErrorBoundary>

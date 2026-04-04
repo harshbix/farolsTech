@@ -1,5 +1,4 @@
-import { createWriteStream, mkdirSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync } from 'fs';
 import winston from 'winston';
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;

@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 /**
  * Scroll Position Memory
  * Saves and restores scroll positions for visited pages
@@ -44,14 +46,14 @@ export function clearAllScrollPositions() {
  * useScrollRestoration(location.pathname);
  */
 export function useScrollRestoration(pathname) {
-  React.useEffect(() => {
+  useEffect(() => {
     // Save current position before component unmounts
     return () => {
       saveScrollPosition(pathname);
     };
   }, [pathname]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Restore scroll position when component mounts
     const savedPosition = getScrollPosition(pathname);
     window.scrollTo(0, savedPosition);

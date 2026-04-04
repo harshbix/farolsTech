@@ -44,8 +44,14 @@ router.get('/', optionalAuth, (req, res) => {
 
   // Status filtering: admins can filter, non-admins always see published
   const isAdmin = req.user && req.user.role === 'admin';
-  const statusFilter = status || 'published'; // Default to published
+  const allowedStatuses = new Set(['draft', 'review', 'scheduled', 'published', 'archived']);
+  const requestedStatus = String(status || 'published').toLowerCase();
+  const statusFilter = allowedStatuses.has(requestedStatus) ? requestedStatus : 'published';
+
   if (!isAdmin) {
+    if (status && statusFilter !== 'published') {
+      return res.json({ posts: [], total: 0, page: parseInt(page) || 1, limit: lim });
+    }
     where.push("p.status = 'published'");
   } else {
     where.push('p.status = ?');
@@ -63,7 +69,9 @@ router.get('/', optionalAuth, (req, res) => {
 
   if (category) { where.push('c.slug = ?'); params.push(category); }
   if (tag) { where.push('t.slug = ?'); params.push(tag); }
-  if (featured) { where.push('p.featured = 1'); }
+  if (featured === 'true' || featured === '1') {
+    where.push('p.featured = 1');
+  }
 
   const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
 

@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../db/client.js';
-import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 import { shareLimiter } from '../middleware/rateLimiter.js';
-import { paginate } from '../utils/helpers.js';
 import { z } from 'zod';
 import { parsePostIdentity, toUnifiedLocalId } from '../services/postIdentity.js';
 

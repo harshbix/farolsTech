@@ -176,7 +176,7 @@ function CommentActions({ commentId, initialScore = 0 }) {
 }
 
 function CommentItem({ comment, postId }) {
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const [replying, setReplying] = useState(false);
   const [reply, setReply] = useState('');
   const qc = useQueryClient();

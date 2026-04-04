@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import { useAuthStore } from '../store/index.js';
 import SEOHead from '../components/SEOHead.jsx';
+import { getErrorMessage } from '../utils/errorFormatter.js';
 
 export default function Register() {
   const navigate = useNavigate();

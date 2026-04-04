@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import logger from '../utils/logger.js';
 
 /**
@@ -14,7 +13,7 @@ class ErrorBoundary extends React.Component {
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(_error) {
     return { hasError: true };
   }
 
@@ -45,7 +44,7 @@ class ErrorBoundary extends React.Component {
               We're sorry! An unexpected error occurred. Our team has been notified and is working to fix it.
             </p>
 
-            {process.env.NODE_ENV === 'development' && (
+            {import.meta.env.DEV && (
               <details className="text-left mb-6 p-3 bg-surface-raised rounded-lg border border-red-500/30">
                 <summary className="cursor-pointer text-sm font-mono text-red-400 mb-2">
                   Error Details (Dev Only)

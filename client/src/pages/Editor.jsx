@@ -86,7 +86,6 @@ export default function Editor() {
     title: '', excerpt: '', cover_image: '', status: 'draft',
     meta_title: '', meta_desc: '', category_id: null,
   });
-  const [autoSaveTimer, setAutoSaveTimer] = useState(null);
 
   const editor = useEditor({
     extensions: [
@@ -218,7 +217,6 @@ export default function Editor() {
         save('draft');
       }
     }, 30000);
-    setAutoSaveTimer(timer);
     return () => clearInterval(timer);
   }, [save, meta.title, editor]);
 

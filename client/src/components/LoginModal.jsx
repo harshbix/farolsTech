@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../api/client.js';
 import { useAuthStore, useUIStore } from '../store/index.js';
+import { getErrorMessage } from '../utils/errorFormatter.js';
 
 export default function LoginModal() {
   const { isLoginModalOpen, closeLoginModal } = useUIStore();

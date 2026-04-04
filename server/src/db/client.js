@@ -7,13 +7,32 @@ import logger from '../utils/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const IS_VERCEL_RUNTIME = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_URL);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 const DB_PATH = process.env.DB_PATH || (IS_VERCEL_RUNTIME
   ? '/tmp/farols.db'
   : join(__dirname, '..', '..', 'data', 'farols.db'));
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin_farols';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@farols.local';
-const ADMIN_PASSWORD_SOURCE = process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD || '123456';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+
+function resolveAdminPasswordHash() {
+  if (ADMIN_PASSWORD_HASH) {
+    return ADMIN_PASSWORD_HASH;
+  }
+
+  if (ADMIN_PASSWORD) {
+    return bcrypt.hashSync(ADMIN_PASSWORD, 12);
+  }
+
+  if (IS_PRODUCTION) {
+    throw new Error('ADMIN_PASSWORD or ADMIN_PASSWORD_HASH must be set in production before first startup.');
+  }
+
+  logger.warn('ADMIN_PASSWORD not set; using development fallback password for seeded admin.');
+  return bcrypt.hashSync('123456', 12);
+}
 
 let db;
 
@@ -56,9 +75,11 @@ export function runMigrations() {
   }
 
   const seededAdmin = dbInstance.prepare('SELECT id FROM users WHERE username = ?').get(ADMIN_USERNAME);
-  const adminPasswordHash = ADMIN_PASSWORD_SOURCE.startsWith('$2')
-    ? ADMIN_PASSWORD_SOURCE
-    : bcrypt.hashSync(ADMIN_PASSWORD_SOURCE, 12);
+  const shouldSyncAdminPassword = Boolean(ADMIN_PASSWORD_HASH || ADMIN_PASSWORD);
+  const shouldSyncAdminEmail = Boolean(process.env.ADMIN_EMAIL);
+  const adminPasswordHash = (!seededAdmin || shouldSyncAdminPassword)
+    ? resolveAdminPasswordHash()
+    : null;
 
   if (!seededAdmin) {
     dbInstance.prepare(
@@ -66,9 +87,23 @@ export function runMigrations() {
     ).run(ADMIN_USERNAME, ADMIN_EMAIL, adminPasswordHash, 'admin', 'Farols Admin');
     logger.info(`Seeded predefined admin account: ${ADMIN_USERNAME}`);
   } else {
-    dbInstance.prepare(
-      "UPDATE users SET role = 'admin', email = ?, password_hash = ?, updated_at = unixepoch() WHERE id = ?"
-    ).run(ADMIN_EMAIL, adminPasswordHash, seededAdmin.id);
+    if (shouldSyncAdminPassword && shouldSyncAdminEmail) {
+      dbInstance.prepare(
+        "UPDATE users SET role = 'admin', email = ?, password_hash = ?, updated_at = unixepoch() WHERE id = ?"
+      ).run(ADMIN_EMAIL, adminPasswordHash, seededAdmin.id);
+    } else if (shouldSyncAdminPassword) {
+      dbInstance.prepare(
+        "UPDATE users SET role = 'admin', password_hash = ?, updated_at = unixepoch() WHERE id = ?"
+      ).run(adminPasswordHash, seededAdmin.id);
+    } else if (shouldSyncAdminEmail) {
+      dbInstance.prepare(
+        "UPDATE users SET role = 'admin', email = ?, updated_at = unixepoch() WHERE id = ?"
+      ).run(ADMIN_EMAIL, seededAdmin.id);
+    } else {
+      dbInstance.prepare(
+        "UPDATE users SET role = 'admin', updated_at = unixepoch() WHERE id = ?"
+      ).run(seededAdmin.id);
+    }
   }
 
   logger.info('Database migrations applied');

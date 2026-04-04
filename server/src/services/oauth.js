@@ -32,7 +32,6 @@ const {
   APPLE_KEY_ID,
   FACEBOOK_APP_ID,
   FACEBOOK_APP_SECRET,
-  JWT_SECRET,
 } = process.env;
 
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || GOOGLE_CALLBACK_URL;
@@ -79,7 +78,7 @@ export class OAuthProvider {
         grant_type: 'authorization_code',
       });
 
-      const { id_token, access_token } = response.data;
+      const { id_token } = response.data;
 
       // Verify and decode ID token
       const googlePublicKey = await this.getGooglePublicKey();

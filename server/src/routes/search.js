@@ -23,7 +23,6 @@ router.get('/', (req, res) => {
       const title = String(post.title || '').toLowerCase();
       const excerpt = String(post.excerpt || '').toLowerCase();
       const tags = (post.tags || []).map((t) => String(t).toLowerCase());
-      const categoryName = String(post.category || '').toLowerCase();
 
       const startsWith = title.startsWith(query) ? 1 : 0;
       const inTitle = title.includes(query) ? 1 : 0;

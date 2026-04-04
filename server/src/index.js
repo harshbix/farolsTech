@@ -99,7 +99,8 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3001;
 app.set('db', db);
-const SHOULD_RUN_PERSISTENT_SERVICES = !IS_PRODUCTION && process.env.NODE_ENV !== 'test' && !IS_VERCEL_RUNTIME;
+const isTestEnv = process.env.NODE_ENV === 'test';
+const SHOULD_RUN_PERSISTENT_SERVICES = !isTestEnv && !IS_VERCEL_RUNTIME;
 
 const defaultAllowedOrigins = [
   'http://localhost:5173',
@@ -176,8 +177,6 @@ let trendingJob = null;
 let newsJob = null;
 let scheduledPublisherJob = null;
 let isShuttingDown = false;
-
-const isTestEnv = process.env.NODE_ENV === 'test';
 
 // Initialize servers
 if (!isTestEnv && SHOULD_RUN_PERSISTENT_SERVICES && server) {
